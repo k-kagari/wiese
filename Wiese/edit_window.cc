@@ -250,13 +250,13 @@ void EditWindow::OnKeyDown(char key) {
   switch (key) {
     case VK_BACK: {
       if (selection_.Position() == 0) return;
-      wchar_t ch = document_.EraseCharacterAt(selection_.MoveBack());
+      wchar_t ch = document_.EraseCharAt(selection_.MoveBack());
 
       // If the removed character was LF, look for leading CR.
       if (ch == L'\n' && selection_.Position() > 0) {
-        ch = document_.GetCharacterAt(selection_.Position() - 1);
+        ch = document_.GetCharAt(selection_.Position() - 1);
         if (ch == L'\r') {
-          document_.EraseCharacterAt(selection_.MoveBack());
+          document_.EraseCharAt(selection_.MoveBack());
         }
       }
       InvalidateRect(hwnd_, nullptr, FALSE);
@@ -264,9 +264,9 @@ void EditWindow::OnKeyDown(char key) {
       return;
     }
     case VK_RETURN: {
-      document_.InsertCharacterBefore(0x0d, selection_.Position());
+      document_.InsertCharBefore(0x0d, selection_.Position());
       selection_.MoveForward();
-      document_.InsertCharacterBefore(0x0a, selection_.Position());
+      document_.InsertCharBefore(0x0a, selection_.Position());
       selection_.MoveForward();
       InvalidateRect(hwnd_, nullptr, FALSE);
       return;
@@ -274,26 +274,26 @@ void EditWindow::OnKeyDown(char key) {
     case VK_LEFT: {
       if (selection_.Position() > 0) {
         int pos = selection_.MoveBack();
-        if (pos > 0 && document_.GetCharacterAt(pos) == L'\n' &&
-            document_.GetCharacterAt(pos - 1) == L'\r')
+        if (pos > 0 && document_.GetCharAt(pos) == L'\n' &&
+            document_.GetCharAt(pos - 1) == L'\r')
           selection_.MoveBack();
         UpdateCaretPosition();
       }
       return;
     }
     case VK_RIGHT: {
-      if (selection_.Position() < document_.GetCharacterCount()) {
-        wchar_t ch = document_.GetCharacterAt(selection_.Position());
+      if (selection_.Position() < document_.GetCharCount()) {
+        wchar_t ch = document_.GetCharAt(selection_.Position());
         selection_.MoveForward();
-        if (ch == L'\r' && document_.GetCharacterAt(selection_.Position()) == L'\n')
+        if (ch == L'\r' && document_.GetCharAt(selection_.Position()) == L'\n')
           selection_.MoveForward();
         UpdateCaretPosition();
       }
       return;
     }
     case VK_DELETE: {
-      if (document_.GetCharacterCount() == selection_.Position()) return;
-      document_.EraseCharacterAt(selection_.Position());
+      if (document_.GetCharCount() == selection_.Position()) return;
+      document_.EraseCharAt(selection_.Position());
       InvalidateRect(hwnd_, nullptr, FALSE);
       UpdateCaretPosition();
       return;
@@ -301,9 +301,9 @@ void EditWindow::OnKeyDown(char key) {
   }
 }
 
-void EditWindow::OnChar(wchar_t character) {
-  if (character == 0x08 || character == 0x0d) return;
-  document_.InsertCharacterBefore(character, selection_.Position());
+void EditWindow::OnChar(wchar_t ch) {
+  if (ch == 0x08 || ch == 0x0d) return;
+  document_.InsertCharBefore(ch, selection_.Position());
   selection_.MoveForward();
   InvalidateRect(hwnd_, nullptr, FALSE);
   UpdateCaretPosition();

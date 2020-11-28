@@ -38,7 +38,7 @@ class EditWindow {
   void OnKillFocus();
   void OnPaint();
   void OnKeyDown(char key);
-  void OnChar(wchar_t character);
+  void OnChar(wchar_t ch);
 
   static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam,
                                   LPARAM lparam);

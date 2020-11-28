@@ -2,6 +2,7 @@
 #define WIESE_DOCUMENT_H_
 
 #include <cassert>
+#include <list>
 #include <string_view>
 #include <vector>
 
@@ -18,13 +19,40 @@ class Piece {
   bool IsOriginal() const { return kind_ == Kind::kOriginal; }
   bool IsPlain() const { return kind_ == Kind::kPlain; }
   bool IsLineBreak() const { return kind_ == Kind::kLineBreak; }
+  int GetCharCount() const {
+    switch (kind_) {
+      case Kind::kOriginal:
+      case Kind::kPlain:
+        return end_ - start_;
+      case Kind::kLineBreak:
+        return 1;
+    }
+    assert(false);
+    return 0;
+  }
+  Piece SplitAt(int index) {
+    Piece latter_half(*this);
+    latter_half.end_ = end_;
+    latter_half.start_ = end_ = index;
+    return latter_half;
+  }
   int start() const {
     assert(IsOriginal() || IsPlain());
     return start_;
   }
+  void set_start(int value) {
+    assert(IsOriginal() || IsPlain());
+    assert(value <= end_);
+    start_ = value;
+  }
   int end() const {
     assert(IsOriginal() || IsPlain());
     return end_;
+  }
+  void set_end(int value) {
+    assert(IsOriginal() || IsPlain());
+    assert(start_ <= value);
+    end_ = value;
   }
 
  private:
@@ -40,19 +68,24 @@ class Document {
   Document(const Document&) = delete;
   Document& operator=(const Document&) = delete;
 
-  void InsertCharacterBefore(wchar_t character, int position);
+  void InsertCharBefore(wchar_t ch, int position);
   void InsertStringBefore(const wchar_t* string, int position);
-  wchar_t EraseCharacterAt(int position);
+  wchar_t EraseCharAt(int position);
 
-  std::wstring_view GetText() const;
-  int GetCharacterCount() const;
-  wchar_t GetCharacterAt(int position) const;
+  std::wstring GetText() const;
+  int GetCharCount() const;
+  wchar_t GetCharAt(int position) const;
 
  private:
-  std::vector<Piece> pieces_;
+  Piece AddCharsToBuffer(const wchar_t* chars, int count);
+  void InsertCharsBefore(const wchar_t* chars, int count,
+                              int position);
+  wchar_t GetCharInPiece(const Piece& piece, int index) const;
+  std::wstring_view GetCharsInPiece(const Piece& piece) const;
+
+  std::list<Piece> pieces_;
   std::vector<wchar_t> original_;
   std::vector<wchar_t> added_;
-  std::vector<wchar_t> buffer_;
 };
 
 }  // namespace wiese

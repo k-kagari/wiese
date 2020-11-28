@@ -11,38 +11,38 @@ TEST(Document, Constructor) {
   EXPECT_EQ(kText, doc.GetText());
 }
 
-TEST(Document, GetCharacterCount) {
+TEST(Document, GetCharCount) {
   wiese::Document doc(kText);
-  EXPECT_EQ(static_cast<int>(std::wcslen(kText)), doc.GetCharacterCount());
-  EXPECT_EQ(static_cast<int>(doc.GetText().size()), doc.GetCharacterCount());
+  EXPECT_EQ(static_cast<int>(std::wcslen(kText)), doc.GetCharCount());
+  EXPECT_EQ(static_cast<int>(doc.GetText().size()), doc.GetCharCount());
 }
 
-TEST(Document, GetCharacterAt_Beginning) {
+TEST(Document, GetCharAt_Beginning) {
   wiese::Document doc(kText);
-  EXPECT_EQ(L'0', doc.GetCharacterAt(0));
+  EXPECT_EQ(L'0', doc.GetCharAt(0));
 }
 
-TEST(Document, GetCharacterAt_End) {
+TEST(Document, GetCharAt_End) {
   wiese::Document doc(kText);
-  EXPECT_EQ(L'9', doc.GetCharacterAt(9));
+  EXPECT_EQ(L'9', doc.GetCharAt(9));
 }
 
-TEST(Document, InsertCharacterBefore_Beginning) {
+TEST(Document, InsertCharBefore_Beginning) {
   wiese::Document doc(kText);
-  doc.InsertCharacterBefore(L's', 0);
-  EXPECT_EQ(L's', doc.GetCharacterAt(0));
+  doc.InsertCharBefore(L's', 0);
+  EXPECT_EQ(L's', doc.GetCharAt(0));
 }
 
-TEST(Document, InsertCharacterBefore_Middle) {
+TEST(Document, InsertCharBefore_Middle) {
   wiese::Document doc(kText);
-  doc.InsertCharacterBefore(L'm', 5);
-  EXPECT_EQ(L'm', doc.GetCharacterAt(5));
+  doc.InsertCharBefore(L'm', 5);
+  EXPECT_EQ(L'm', doc.GetCharAt(5));
 }
 
-TEST(Document, InsertCharacterBefore_End) {
+TEST(Document, InsertCharBefore_End) {
   wiese::Document doc(kText);
-  doc.InsertCharacterBefore(L'e', 10);
-  EXPECT_EQ(L'e', doc.GetCharacterAt(10));
+  doc.InsertCharBefore(L'e', 10);
+  EXPECT_EQ(L'e', doc.GetCharAt(10));
 }
 
 TEST(Document, InsertStringBefore_Beginning) {
@@ -63,21 +63,21 @@ TEST(Document, InsertStringBefore_End) {
   EXPECT_EQ(L"0123456789end", doc.GetText());
 }
 
-TEST(Document, EraseCharacterAt_Beginning) {
+TEST(Document, EraseCharAt_Beginning) {
   wiese::Document doc(kText);
-  doc.EraseCharacterAt(0);
+  EXPECT_EQ(L'0', doc.EraseCharAt(0));
   EXPECT_EQ(L"123456789", doc.GetText());
 }
 
-TEST(Document, EraseCharacterAt_Middle) {
+TEST(Document, EraseCharAt_Middle) {
   wiese::Document doc(kText);
-  doc.EraseCharacterAt(5);
+  EXPECT_EQ(L'5', doc.EraseCharAt(5));
   EXPECT_EQ(L"012346789", doc.GetText());
 }
 
-TEST(Document, EraseCharacterAt_End) {
+TEST(Document, EraseCharAt_End) {
   wiese::Document doc(kText);
-  doc.EraseCharacterAt(9);
+  EXPECT_EQ(L'9', doc.EraseCharAt(9));
   EXPECT_EQ(L"012345678", doc.GetText());
 }
 
@@ -123,4 +123,13 @@ TEST(Piece, start_returns_value_passed_on_MakePlain) {
 TEST(Piece, end_returns_value_passed_on_MakePlain) {
   EXPECT_EQ(2, wiese::Piece::MakePlain(1, 2).end());
   EXPECT_EQ(3, wiese::Piece::MakePlain(2, 3).end());
+}
+
+TEST(Piece, SplitAt_shortens_itself_and_returns_the_rest) {
+  wiese::Piece piece = wiese::Piece::MakeOriginal(0, 5);
+  wiese::Piece rest = piece.SplitAt(2);
+  EXPECT_EQ(0, piece.start());
+  EXPECT_EQ(2, piece.end());
+  EXPECT_EQ(2, rest.start());
+  EXPECT_EQ(5, rest.end());
 }
