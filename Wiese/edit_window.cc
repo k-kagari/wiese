@@ -131,10 +131,10 @@ void EditWindow::CreateDirect2DResources() {
 
 namespace {
 
-int CalculateLineHeight(const DWRITE_FONT_METRICS& metrics, int em) {
+float CalculateLineHeight(const DWRITE_FONT_METRICS& metrics, int em) {
   const int line_spacing = metrics.ascent + metrics.descent + metrics.lineGap;
-  return static_cast<int>(static_cast<float>(line_spacing) /
-                          metrics.designUnitsPerEm * em);
+  return static_cast<float>(line_spacing) /
+                          metrics.designUnitsPerEm * em;
 }
 
 std::unique_ptr<std::uint16_t[]> StringToGlyphIndices(
@@ -151,24 +151,25 @@ std::unique_ptr<std::uint16_t[]> StringToGlyphIndices(
 }  // namespace
 
 void EditWindow::DrawLines() {
-  std::wstring text = document_.GetText();
-  std::array<wchar_t, 1> crlf = {L'\n'};
-
-  auto it = text.begin();
-  int y_offset = 0;
-  for (;;) {
-    auto line_end = std::search(it, text.end(), crlf.begin(), crlf.end());
-    std::wstring_view line(&*it, std::distance(it, line_end));
-    DrawString(line, y_offset);
-    if (line_end == text.end()) break;
-    it = line_end + 2;
-    y_offset += CalculateLineHeight(font_metrics_, kFontEmSize);
+  const float line_height = CalculateLineHeight(font_metrics_, kFontEmSize);
+  float x_offset = 0;
+  int line_number = 0;
+  for (auto it = document_.PieceIteratorBegin();
+       it != document_.PieceIteratorEnd(); ++it) {
+    if (it->IsLineBreak()) {
+      ++line_number;
+      x_offset = 0.0f;
+      continue;
+    }
+    x_offset += DrawString(document_.GetCharsInPiece(*it), x_offset,
+                           line_height * line_number);
   }
 }
 
-void EditWindow::DrawString(std::wstring_view text, int y_offset) {
+float EditWindow::DrawString(std::wstring_view text, float x, float y) {
   std::unique_ptr<std::uint16_t[]> glyph_indices =
       StringToGlyphIndices(text, font_face_);
+
   DWRITE_GLYPH_RUN glyph_run;
   glyph_run.fontFace = font_face_;
   glyph_run.fontEmSize = kFontEmSize;
@@ -178,11 +179,19 @@ void EditWindow::DrawString(std::wstring_view text, int y_offset) {
   glyph_run.glyphOffsets = nullptr;
   glyph_run.isSideways = FALSE;
   glyph_run.bidiLevel = 0;
+  float y_offset = y + static_cast<float>(font_metrics_.ascent) /
+                       font_metrics_.designUnitsPerEm * kFontEmSize;
+  render_target_->DrawGlyphRun(D2D1::Point2F(x, y_offset), &glyph_run,
+                               brush_);
 
-  float y = static_cast<float>(font_metrics_.ascent) /
-                font_metrics_.designUnitsPerEm * kFontEmSize +
-            y_offset;
-  render_target_->DrawGlyphRun(D2D1::Point2F(0.0f, y), &glyph_run, brush_);
+    auto glyph_metrics = std::make_unique<DWRITE_GLYPH_METRICS[]>(text.size());
+  font_face_->GetDesignGlyphMetrics(glyph_indices.get(), text.size(),
+                                    glyph_metrics.get());
+  float width = 0.0f;
+  for (int i = 0; i < static_cast<int>(text.size()); ++i) {
+    width += DesignUnitsToWindowCoordinates(glyph_metrics[i].advanceWidth);
+  }
+  return width;
 }
 
 void EditWindow::UpdateCaretPosition() {
@@ -223,7 +232,7 @@ void EditWindow::OnSetFocus() {
   int kCaretWidth = 1;
   DPIScaler scaler(hwnd_);
   scaler.CreateCaret(hwnd_, nullptr, kCaretWidth,
-                     CalculateLineHeight(font_metrics_, kFontEmSize));
+                     static_cast<int>(CalculateLineHeight(font_metrics_, kFontEmSize)));
   scaler.SetCaretPos(0, 0);
   ShowCaret(hwnd_);
 }
@@ -274,8 +283,9 @@ void EditWindow::OnKeyDown(char key) {
     }
     case VK_LEFT: {
       if (selection_.Position() > 0) {
-        int pos = selection_.MoveBack();
+        selection_.MoveBack();
         /*
+        int pos = selection_.MoveBack();
         if (pos > 0 && document_.GetCharAt(pos) == L'\n' &&
             document_.GetCharAt(pos - 1) == L'\r')
           selection_.MoveBack();
@@ -286,9 +296,11 @@ void EditWindow::OnKeyDown(char key) {
     }
     case VK_RIGHT: {
       if (selection_.Position() < document_.GetCharCount()) {
-        wchar_t ch = document_.GetCharAt(selection_.Position());
+        document_.GetCharAt(selection_.Position());
         selection_.MoveForward();
         /*
+        wchar_t ch = document_.GetCharAt(selection_.Position());
+        selection_.MoveForward();
         if (ch == L'\r' && document_.GetCharAt(selection_.Position()) == L'\n')
           selection_.MoveForward();
         */

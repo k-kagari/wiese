@@ -64,6 +64,9 @@ class Piece {
 
 class Document {
  public:
+  using PieceList = std::list<Piece>;
+  using PieceListIterator = PieceList::const_iterator;
+
   Document(const wchar_t* original_text);
   Document(const Document&) = delete;
   Document& operator=(const Document&) = delete;
@@ -77,14 +80,17 @@ class Document {
   int GetCharCount() const;
   wchar_t GetCharAt(int position) const;
 
+  std::wstring_view GetCharsInPiece(const Piece& piece) const;
+  PieceListIterator PieceIteratorBegin() const { return pieces_.begin(); }
+  PieceListIterator PieceIteratorEnd() const { return pieces_.end(); }
+
  private:
   Piece AddCharsToBuffer(const wchar_t* chars, int count);
   void InsertCharsBefore(const wchar_t* chars, int count,
                               int position);
   wchar_t GetCharInPiece(const Piece& piece, int index) const;
-  std::wstring_view GetCharsInPiece(const Piece& piece) const;
 
-  std::list<Piece> pieces_;
+  PieceList pieces_;
   std::vector<wchar_t> original_;
   std::vector<wchar_t> added_;
 };

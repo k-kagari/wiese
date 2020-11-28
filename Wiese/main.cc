@@ -9,7 +9,7 @@
 
 namespace {}  // namespace
 
-int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR lpCmdLine,
+int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR /*lpCmdLine*/,
                     int nCmdShow) {
   CoInitialize(nullptr);
 

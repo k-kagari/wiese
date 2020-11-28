@@ -30,7 +30,7 @@ class EditWindow {
 
   void CreateDirect2DResources();
   void DrawLines();
-  void DrawString(std::wstring_view text, int y_offset);
+  float DrawString(std::wstring_view text, float x, float y);
   void UpdateCaretPosition();
   float DesignUnitsToWindowCoordinates(UINT32 design_unit);
 

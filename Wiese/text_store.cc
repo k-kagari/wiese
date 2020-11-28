@@ -8,6 +8,8 @@
 #include <cassert>
 #include <string>
 
+#pragma warning(disable:4100)
+
 namespace wiese {
 
 HRESULT STDMETHODCALLTYPE TextStore::QueryInterface(REFIID riid,
@@ -114,8 +116,8 @@ HRESULT STDMETHODCALLTYPE TextStore::QueryInsert(LONG acpTestStart,
                                                  LONG acpTestEnd, ULONG cch,
                                                  LONG* pacpResultStart,
                                                  LONG* pacpResultEnd) {
-  if (acpTestStart < 0 || text_.size() < acpTestStart || acpTestEnd < 0 ||
-      text_.size() < acpTestEnd)
+  if (acpTestStart < 0 || static_cast<LONG>(text_.size()) < acpTestStart || acpTestEnd < 0 ||
+      static_cast<LONG>(text_.size()) < acpTestEnd)
     return E_INVALIDARG;
   *pacpResultStart = acpTestStart;
   *pacpResultEnd = acpTestStart;
@@ -150,8 +152,8 @@ HRESULT STDMETHODCALLTYPE TextStore::GetText(
     ULONG* pcchPlainRet, TS_RUNINFO* prgRunInfo, ULONG cRunInfoReq,
     ULONG* pcRunInfoRet, LONG* pacpNext) {
   if (!(active_lock_ & TS_LF_READ)) return TF_E_NOLOCK;
-  if (acpStart < 0 || text_.size() < acpStart || acpEnd < -1 ||
-      text_.size() < acpEnd)
+  if (acpStart < 0 || static_cast<LONG>(text_.size()) < acpStart || acpEnd < -1 ||
+      static_cast<LONG>(text_.size()) < acpEnd)
     return TF_E_INVALIDPOS;
 
   auto begin = text_.begin() + acpStart;
