@@ -152,7 +152,7 @@ std::unique_ptr<std::uint16_t[]> StringToGlyphIndices(
 
 void EditWindow::DrawLines() {
   std::wstring text = document_.GetText();
-  std::array<wchar_t, 2> crlf = {L'\r', L'\n'};
+  std::array<wchar_t, 1> crlf = {L'\n'};
 
   auto it = text.begin();
   int y_offset = 0;
@@ -251,8 +251,9 @@ void EditWindow::OnKeyDown(char key) {
   switch (key) {
     case VK_BACK: {
       if (selection_.Position() == 0) return;
+      document_.EraseCharAt(selection_.MoveBack());
+      /*
       wchar_t ch = document_.EraseCharAt(selection_.MoveBack());
-
       // If the removed character was LF, look for leading CR.
       if (ch == L'\n' && selection_.Position() > 0) {
         ch = document_.GetCharAt(selection_.Position() - 1);
@@ -260,14 +261,13 @@ void EditWindow::OnKeyDown(char key) {
           document_.EraseCharAt(selection_.MoveBack());
         }
       }
+      */
       InvalidateRect(hwnd_, nullptr, FALSE);
       UpdateCaretPosition();
       return;
     }
     case VK_RETURN: {
-      document_.InsertCharBefore(0x0d, selection_.Position());
-      selection_.MoveForward();
-      document_.InsertCharBefore(0x0a, selection_.Position());
+      document_.InsertLineBreakBefore(selection_.Position());
       selection_.MoveForward();
       InvalidateRect(hwnd_, nullptr, FALSE);
       return;
@@ -275,9 +275,11 @@ void EditWindow::OnKeyDown(char key) {
     case VK_LEFT: {
       if (selection_.Position() > 0) {
         int pos = selection_.MoveBack();
+        /*
         if (pos > 0 && document_.GetCharAt(pos) == L'\n' &&
             document_.GetCharAt(pos - 1) == L'\r')
           selection_.MoveBack();
+        */
         UpdateCaretPosition();
       }
       return;
@@ -286,8 +288,10 @@ void EditWindow::OnKeyDown(char key) {
       if (selection_.Position() < document_.GetCharCount()) {
         wchar_t ch = document_.GetCharAt(selection_.Position());
         selection_.MoveForward();
+        /*
         if (ch == L'\r' && document_.GetCharAt(selection_.Position()) == L'\n')
           selection_.MoveForward();
+        */
         UpdateCaretPosition();
       }
       return;

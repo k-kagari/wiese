@@ -18,8 +18,7 @@ void Dump(T t) {
 }
 
 template <typename T, typename... Args>
-void Dump(T t, Args... args)
-{
+void Dump(T t, Args... args) {
   std::cout << t << ",";
   Dump(args...);
 }
@@ -89,6 +88,8 @@ std::wstring_view Document::GetCharsInPiece(const Piece& piece) const {
     static const wchar_t kLF = L'\n';
     return {&kLF, 1};
   }
+  assert(false);
+  return {};
 }
 
 void Document::InsertCharsBefore(const wchar_t* chars, int count,
@@ -117,9 +118,9 @@ void Document::InsertCharsBefore(const wchar_t* chars, int count,
     if (position < offset + piece_size) {
       // Specified position is in the middle of a piece.
       // Split it and insert a new piece.
-      Piece latter_half = it->SplitAt(position - offset);
+      Piece rest = it->SplitAt(position - offset);
       pieces_.insert(++it, AddCharsToBuffer(chars, count));
-      pieces_.insert(it, latter_half);
+      pieces_.insert(it, rest);
       return;
     }
     offset += piece_size;
@@ -135,6 +136,31 @@ void Document::InsertCharBefore(wchar_t ch, int position) {
 void Document::InsertStringBefore(const wchar_t* string, int position) {
   TRACE(string, position);
   InsertCharsBefore(string, std::wcslen(string), position);
+}
+
+void Document::InsertLineBreakBefore(int position) {
+  assert(0 <= position);
+  assert(position <= GetCharCount());
+  if (position == 0) {
+    pieces_.push_front(Piece::MakeLineBreak());
+    return;
+  }
+  int offset = 0;
+  for (auto it = pieces_.begin(); it != pieces_.end(); ++it) {
+    int piece_size = it->GetCharCount();
+    if (offset + piece_size == position) {
+      pieces_.insert(++it, Piece::MakeLineBreak());
+      return;
+    }
+    if (position < offset + piece_size) {
+      Piece rest = it->SplitAt(position - offset);
+      pieces_.insert(++it, Piece::MakeLineBreak());
+      pieces_.insert(it, rest);
+      return;
+    }
+    offset += piece_size;
+  }
+  assert(false);  // Unreachable.
 }
 
 wchar_t Document::EraseCharAt(int position) {

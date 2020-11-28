@@ -70,6 +70,7 @@ class Document {
 
   void InsertCharBefore(wchar_t ch, int position);
   void InsertStringBefore(const wchar_t* string, int position);
+  void InsertLineBreakBefore(int position);
   wchar_t EraseCharAt(int position);
 
   std::wstring GetText() const;

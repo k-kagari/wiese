@@ -63,6 +63,24 @@ TEST(Document, InsertStringBefore_End) {
   EXPECT_EQ(L"0123456789end", doc.GetText());
 }
 
+TEST(Document, InsertLineBreakBefore_Beginning) {
+  wiese::Document doc(kText);
+  doc.InsertLineBreakBefore(0);
+  EXPECT_EQ(L"\n0123456789", doc.GetText());
+}
+
+TEST(Document, InsertLineBreakBefore_Middle) {
+  wiese::Document doc(kText);
+  doc.InsertLineBreakBefore(5);
+  EXPECT_EQ(L"01234\n56789", doc.GetText());
+}
+
+TEST(Document, InsertLineBreakBefore_End) {
+  wiese::Document doc(kText);
+  doc.InsertLineBreakBefore(10);
+  EXPECT_EQ(L"0123456789\n", doc.GetText());
+}
+
 TEST(Document, EraseCharAt_Beginning) {
   wiese::Document doc(kText);
   EXPECT_EQ(L'0', doc.EraseCharAt(0));
