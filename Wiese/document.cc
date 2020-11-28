@@ -7,18 +7,31 @@
 
 namespace wiese {
 
-Span Span::MakePlain(int start, int end) {
+Piece Piece::MakeOriginal(int start, int end) {
   assert(start <= end);
-  Span span(Kind::kPlain);
-  span.start_ = start;
-  span.end_ = end;
-  return span;
+  Piece piece(Kind::kOriginal);
+  piece.start_ = start;
+  piece.end_ = end;
+  return piece;
 }
 
-Span Span::MakeLineBreak() { return Span(Kind::kLineBreak); }
+Piece Piece::MakePlain(int start, int end) {
+  assert(start <= end);
+  Piece piece(Kind::kPlain);
+  piece.start_ = start;
+  piece.end_ = end;
+  return piece;
+}
+
+Piece Piece::MakeLineBreak() { return Piece(Kind::kLineBreak); }
 
 Document::Document(const wchar_t* original_text) {
-  buffer_.assign(original_text, original_text + std::wcslen(original_text));
+  std::size_t length = std::wcslen(original_text);
+  buffer_.assign(original_text, original_text + length);
+  /*
+  if (length == 0) return;
+  original_.assign(original_text, original_text + length);
+  */
 }
 
 void Document::InsertCharacterBefore(wchar_t character, int position) {

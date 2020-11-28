@@ -7,26 +7,28 @@
 
 namespace wiese {
 
-class Span {
+class Piece {
  private:
-  enum class Kind { kPlain, kLineBreak };
+  enum class Kind { kOriginal, kPlain, kLineBreak };
 
  public:
-  static Span MakePlain(int start, int end);
-  static Span MakeLineBreak();
+  static Piece MakeOriginal(int start, int end);
+  static Piece MakePlain(int start, int end);
+  static Piece MakeLineBreak();
+  bool IsOriginal() const { return kind_ == Kind::kOriginal; }
   bool IsPlain() const { return kind_ == Kind::kPlain; }
   bool IsLineBreak() const { return kind_ == Kind::kLineBreak; }
   int start() const {
-    assert(IsPlain());
+    assert(IsOriginal() || IsPlain());
     return start_;
   }
   int end() const {
-    assert(IsPlain());
+    assert(IsOriginal() || IsPlain());
     return end_;
   }
 
  private:
-  Span(Kind kind) : kind_(kind) {}
+  Piece(Kind kind) : kind_(kind) {}
   Kind kind_;
   int start_;
   int end_;
@@ -47,6 +49,9 @@ class Document {
   wchar_t GetCharacterAt(int position) const;
 
  private:
+  std::vector<Piece> pieces_;
+  std::vector<wchar_t> original_;
+  std::vector<wchar_t> added_;
   std::vector<wchar_t> buffer_;
 };
 

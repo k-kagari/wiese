@@ -81,44 +81,46 @@ TEST(Document, EraseCharacterAt_End) {
   EXPECT_EQ(L"012345678", doc.GetText());
 }
 
-TEST(Span, MakePlain_returns_Span_that_is_a_Plain) {
-  wiese::Span plain_span = wiese::Span::MakePlain(1, 2);
-  EXPECT_TRUE(plain_span.IsPlain());
+TEST(Piece, MakeOriginal_returns_Piece_that_is_a_Original) {
+  EXPECT_TRUE(wiese::Piece::MakeOriginal(1, 2).IsOriginal());
 }
 
-TEST(Span, MakeLineBreak_returns_Span_that_is_a_LineBreak) {
-  wiese::Span line_break_span = wiese::Span::MakeLineBreak();
-  EXPECT_TRUE(line_break_span.IsLineBreak());
+TEST(Piece, MakePlain_returns_Piece_that_is_a_Plain) {
+  EXPECT_TRUE(wiese::Piece::MakePlain(1, 2).IsPlain());
 }
 
-TEST(Span, IsPlain_returns_false_when_it_is_not_a_Plain) {
-  wiese::Span not_plain_span = wiese::Span::MakeLineBreak();
-  EXPECT_FALSE(not_plain_span.IsPlain());
+TEST(Piece, MakeLineBreak_returns_Piece_that_is_a_LineBreak) {
+  EXPECT_TRUE(wiese::Piece::MakeLineBreak().IsLineBreak());
 }
 
-TEST(Span, IsLineBreak_returns_false_when_it_is_not_a_LineBreak) {
-  wiese::Span not_line_break_span = wiese::Span::MakePlain(1, 2);
-  EXPECT_FALSE(not_line_break_span.IsLineBreak());
+TEST(Piece, IsOriginal_returns_false_when_it_is_not_a_Original) {
+  EXPECT_FALSE(wiese::Piece::MakePlain(1, 2).IsOriginal());
 }
 
-TEST(Span, start_returns_value_passed_on_MakePlain) {
-  {
-    wiese::Span plain_span = wiese::Span::MakePlain(1, 2);
-    EXPECT_EQ(1, plain_span.start());
-  }
-  {
-    wiese::Span plain_span = wiese::Span::MakePlain(2, 3);
-    EXPECT_EQ(2, plain_span.start());
-  }
+TEST(Piece, IsPlain_returns_false_when_it_is_not_a_Plain) {
+  EXPECT_FALSE(wiese::Piece::MakeLineBreak().IsPlain());
 }
 
-TEST(Span, end_returns_value_passed_on_MakePlain) {
-  {
-    wiese::Span plain_span = wiese::Span::MakePlain(1, 2);
-    EXPECT_EQ(2, plain_span.end());
-  }
-  {
-    wiese::Span plain_span = wiese::Span::MakePlain(2, 3);
-    EXPECT_EQ(3, plain_span.end());
-  }
+TEST(Piece, IsLineBreak_returns_false_when_it_is_not_a_LineBreak) {
+  EXPECT_FALSE(wiese::Piece::MakeOriginal(1, 2).IsLineBreak());
+}
+
+TEST(Piece, start_returns_value_passed_on_MakeOriginal) {
+  EXPECT_EQ(1, wiese::Piece::MakeOriginal(1, 2).start());
+  EXPECT_EQ(2, wiese::Piece::MakeOriginal(2, 3).start());
+}
+
+TEST(Piece, end_returns_value_passed_on_MakeOriginal) {
+  EXPECT_EQ(2, wiese::Piece::MakeOriginal(1, 2).end());
+  EXPECT_EQ(3, wiese::Piece::MakeOriginal(2, 3).end());
+}
+
+TEST(Piece, start_returns_value_passed_on_MakePlain) {
+  EXPECT_EQ(1, wiese::Piece::MakePlain(1, 2).start());
+  EXPECT_EQ(2, wiese::Piece::MakePlain(2, 3).start());
+}
+
+TEST(Piece, end_returns_value_passed_on_MakePlain) {
+  EXPECT_EQ(2, wiese::Piece::MakePlain(1, 2).end());
+  EXPECT_EQ(3, wiese::Piece::MakePlain(2, 3).end());
 }
