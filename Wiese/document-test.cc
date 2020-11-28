@@ -81,6 +81,28 @@ TEST(Document, EraseCharAt_End) {
   EXPECT_EQ(L"012345678", doc.GetText());
 }
 
+TEST(Document, RegressionCase1) {
+  wiese::Document doc(kText);
+  doc.InsertCharBefore(L'a', 0);
+  doc.EraseCharAt(0);
+  EXPECT_EQ(kText, doc.GetText());
+}
+
+TEST(Document, RegressionCase2) {
+  wiese::Document doc(kText);
+  doc.InsertCharBefore(L'a', 1);
+  doc.InsertCharBefore(L'b', 2);
+  EXPECT_EQ(L"0ab123456789", doc.GetText());
+}
+
+TEST(Document, RegressionCase3) {
+  wiese::Document doc(kText);
+  doc.InsertCharBefore(L'a', 1);
+  doc.InsertCharBefore(L'b', 2);
+  doc.EraseCharAt(2);
+  EXPECT_EQ(L"0a123456789", doc.GetText());
+}
+
 TEST(Piece, MakeOriginal_returns_Piece_that_is_a_Original) {
   EXPECT_TRUE(wiese::Piece::MakeOriginal(1, 2).IsOriginal());
 }
@@ -126,10 +148,10 @@ TEST(Piece, end_returns_value_passed_on_MakePlain) {
 }
 
 TEST(Piece, SplitAt_shortens_itself_and_returns_the_rest) {
-  wiese::Piece piece = wiese::Piece::MakeOriginal(0, 5);
+  wiese::Piece piece = wiese::Piece::MakeOriginal(1, 6);
   wiese::Piece rest = piece.SplitAt(2);
-  EXPECT_EQ(0, piece.start());
-  EXPECT_EQ(2, piece.end());
-  EXPECT_EQ(2, rest.start());
-  EXPECT_EQ(5, rest.end());
+  EXPECT_EQ(1, piece.start());
+  EXPECT_EQ(3, piece.end());
+  EXPECT_EQ(3, rest.start());
+  EXPECT_EQ(6, rest.end());
 }

@@ -31,10 +31,10 @@ class Piece {
     return 0;
   }
   Piece SplitAt(int index) {
-    Piece latter_half(*this);
-    latter_half.end_ = end_;
-    latter_half.start_ = end_ = index;
-    return latter_half;
+    Piece rest(*this);
+    rest.end_ = end_;
+    rest.start_ = end_ = start_ + index;
+    return rest;
   }
   int start() const {
     assert(IsOriginal() || IsPlain());

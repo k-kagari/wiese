@@ -3,10 +3,34 @@
 #include <algorithm>
 #include <cassert>
 #include <cstring>
+#include <initializer_list>
+#include <iostream>
 #include <iterator>
 #include <optional>
 #include <string_view>
 #include <vector>
+
+namespace {
+
+template <typename T>
+void Dump(T t) {
+  std::cout << t << std::endl;
+}
+
+template <typename T, typename... Args>
+void Dump(T t, Args... args)
+{
+  std::cout << t << ",";
+  Dump(args...);
+}
+
+}  // namespace
+
+#if 0
+#define TRACE(...) Dump(__FUNCSIG__, __VA_ARGS__)
+#else
+#define TRACE(...)
+#endif
 
 namespace wiese {
 
@@ -80,7 +104,7 @@ void Document::InsertCharsBefore(const wchar_t* chars, int count,
     int piece_size = it->GetCharCount();
     if (offset + piece_size == position) {
       // Specified position is in between of two pieces.
-      // Now consider whether we can just expand the previous piece.
+      // Now consider whether we can just elongate the previous piece.
       if (it->IsPlain() && it->end() == static_cast<int>(added_.size())) {
         std::copy(chars, chars + count, std::back_inserter(added_));
         it->set_end(it->end() + count);
@@ -98,21 +122,37 @@ void Document::InsertCharsBefore(const wchar_t* chars, int count,
       pieces_.insert(it, latter_half);
       return;
     }
+    offset += piece_size;
   }
   assert(false);  // Unreachable.
 }
 
 void Document::InsertCharBefore(wchar_t ch, int position) {
+  TRACE(ch, position);
   InsertCharsBefore(&ch, 1, position);
 }
 
 void Document::InsertStringBefore(const wchar_t* string, int position) {
+  TRACE(string, position);
   InsertCharsBefore(string, std::wcslen(string), position);
 }
 
 wchar_t Document::EraseCharAt(int position) {
+  TRACE(position);
   assert(0 <= position);
   assert(position < GetCharCount());
+  if (position == 0) {
+    Piece& piece = pieces_.front();
+    if (piece.GetCharCount() == 1) {
+      wchar_t ch = GetCharInPiece(piece, 0);
+      pieces_.pop_front();
+      return ch;
+    }
+    wchar_t ch = GetCharInPiece(piece, 0);
+    piece.set_start(piece.start() + 1);
+    return ch;
+  }
+
   int offset = 0;
   for (auto it = pieces_.begin(); it != pieces_.end(); ++it) {
     int piece_size = it->GetCharCount();
@@ -141,6 +181,7 @@ wchar_t Document::EraseCharAt(int position) {
       pieces_.insert(++it, latter_half);
       return ch;
     }
+    offset += piece_size;
   }
   assert(false);  // Unreachable.
   return 0;

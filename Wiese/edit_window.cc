@@ -45,9 +45,10 @@ EditWindow::EditWindow(ID2D1FactoryPtr d2d, IDWriteFactoryPtr dwrite,
       dwrite_(dwrite),
       tf_thread_manager_(tf_thread_manager),
       tf_document_manager_(tf_document_manager),
+      tf_client_id_(),
+      font_metrics_(),
       hwnd_(hwnd),
-document_(L"Wiese") {
-}
+      document_(L"0123456789") {}
 
 ATOM EditWindow::class_atom_ = 0;
 
@@ -150,7 +151,7 @@ std::unique_ptr<std::uint16_t[]> StringToGlyphIndices(
 }  // namespace
 
 void EditWindow::DrawLines() {
-  std::wstring_view text = document_.GetText();
+  std::wstring text = document_.GetText();
   std::array<wchar_t, 2> crlf = {L'\r', L'\n'};
 
   auto it = text.begin();
@@ -185,7 +186,7 @@ void EditWindow::DrawString(std::wstring_view text, int y_offset) {
 }
 
 void EditWindow::UpdateCaretPosition() {
-  std::wstring_view text = document_.GetText();
+  std::wstring text = document_.GetText();
   int start_pos_of_line = 0;
   int line_count = 0;
   for (int i = 0; i < selection_.Position(); ++i) {
