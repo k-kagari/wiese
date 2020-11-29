@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <memory>
 #include <numeric>
+#include <optional>
 #include <string_view>
 #include <vector>
 
@@ -133,8 +134,7 @@ namespace {
 
 float CalculateLineHeight(const DWRITE_FONT_METRICS& metrics, int em) {
   const int line_spacing = metrics.ascent + metrics.descent + metrics.lineGap;
-  return static_cast<float>(line_spacing) /
-                          metrics.designUnitsPerEm * em;
+  return static_cast<float>(line_spacing) / metrics.designUnitsPerEm * em;
 }
 
 std::unique_ptr<std::uint16_t[]> StringToGlyphIndices(
@@ -180,47 +180,71 @@ float EditWindow::DrawString(std::wstring_view text, float x, float y) {
   glyph_run.isSideways = FALSE;
   glyph_run.bidiLevel = 0;
   float y_offset = y + static_cast<float>(font_metrics_.ascent) /
-                       font_metrics_.designUnitsPerEm * kFontEmSize;
-  render_target_->DrawGlyphRun(D2D1::Point2F(x, y_offset), &glyph_run,
-                               brush_);
+                           font_metrics_.designUnitsPerEm * kFontEmSize;
+  render_target_->DrawGlyphRun(D2D1::Point2F(x, y_offset), &glyph_run, brush_);
 
-    auto glyph_metrics = std::make_unique<DWRITE_GLYPH_METRICS[]>(text.size());
-  font_face_->GetDesignGlyphMetrics(glyph_indices.get(), text.size(),
-                                    glyph_metrics.get());
+  return MeasureGlyphIndicesWidth(glyph_indices.get(), text.size());
+}
+
+float EditWindow::MeasureGlyphIndicesWidth(const std::uint16_t* indices,
+                                           int count) {
+  auto glyph_metrics = std::make_unique<DWRITE_GLYPH_METRICS[]>(count);
+  font_face_->GetDesignGlyphMetrics(indices, count, glyph_metrics.get());
   float width = 0.0f;
-  for (int i = 0; i < static_cast<int>(text.size()); ++i) {
+  for (int i = 0; i < count; ++i) {
     width += DesignUnitsToWindowCoordinates(glyph_metrics[i].advanceWidth);
   }
   return width;
 }
 
-void EditWindow::UpdateCaretPosition() {
-  std::wstring text = document_.GetText();
-  int start_pos_of_line = 0;
-  int line_count = 0;
-  for (int i = 0; i < selection_.Position(); ++i) {
-    if (text[i] == L'\r') {
-      if (i + 1 == selection_.Position()) break;
-      if (text[i + 1] == L'\n') ++i;
-      start_pos_of_line = i + 1;
-      ++line_count;
-    }
-  }
-  text = text.substr(start_pos_of_line, selection_.Position());
-
+float EditWindow::MeasureStringWidth(std::wstring_view string) {
   std::unique_ptr<std::uint16_t[]> glyph_indices =
-      StringToGlyphIndices(text, font_face_);
-  auto glyph_metrics = std::make_unique<DWRITE_GLYPH_METRICS[]>(text.size());
-  font_face_->GetDesignGlyphMetrics(glyph_indices.get(), text.size(),
-                                    glyph_metrics.get());
-  float x = 0.0f;
-  for (int i = 0; i < static_cast<int>(text.size()); ++i) {
-    x += DesignUnitsToWindowCoordinates(glyph_metrics[i].advanceWidth);
-  }
-  const float y = DesignUnitsToWindowCoordinates(
+      StringToGlyphIndices(string, font_face_);
+  return MeasureGlyphIndicesWidth(glyph_indices.get(), string.size());
+}
+
+void EditWindow::UpdateCaretPosition() {
+  const float line_height = DesignUnitsToWindowCoordinates(
       font_metrics_.ascent + font_metrics_.descent + font_metrics_.lineGap);
   DPIScaler scaler(hwnd_);
-  scaler.SetCaretPos(static_cast<int>(x), static_cast<int>(y * line_count));
+  if (selection_.Point() == 0) {
+    scaler.SetCaretPos(0, 0);
+    return;
+  }
+
+  int pos = 0;
+  int line_count = 0;
+
+  std::optional<Piece> piece_before_caret;
+  Document::PieceListIterator it;
+  for (it = document_.PieceIteratorBegin(); it != document_.PieceIteratorEnd();
+       ++it) {
+    int char_count = it->GetCharCount();
+    if (it->IsLineBreak()) ++line_count;
+    if (selection_.Point() == pos + char_count) {
+      piece_before_caret = *it;
+      break;
+    }
+    if (selection_.Point() < pos + char_count) {
+      piece_before_caret = it->Slice(0, selection_.Point() - pos);
+      break;
+    }
+    pos += char_count;
+  }
+  assert(piece_before_caret.has_value());
+
+  float x;
+  if (piece_before_caret->IsLineBreak()) {
+    x = 0.0f;
+  } else {
+    x = MeasureStringWidth(document_.GetCharsInPiece(*piece_before_caret));
+    while (it != document_.PieceIteratorBegin() && !(--it)->IsLineBreak()) {
+      x += MeasureStringWidth(document_.GetCharsInPiece(*it));
+    }
+  }
+
+  scaler.SetCaretPos(static_cast<int>(x),
+                     static_cast<int>(line_height * line_count));
 }
 
 float EditWindow::DesignUnitsToWindowCoordinates(UINT32 design_unit) {
@@ -231,8 +255,9 @@ float EditWindow::DesignUnitsToWindowCoordinates(UINT32 design_unit) {
 void EditWindow::OnSetFocus() {
   int kCaretWidth = 1;
   DPIScaler scaler(hwnd_);
-  scaler.CreateCaret(hwnd_, nullptr, kCaretWidth,
-                     static_cast<int>(CalculateLineHeight(font_metrics_, kFontEmSize)));
+  scaler.CreateCaret(
+      hwnd_, nullptr, kCaretWidth,
+      static_cast<int>(CalculateLineHeight(font_metrics_, kFontEmSize)));
   scaler.SetCaretPos(0, 0);
   ShowCaret(hwnd_);
 }
@@ -259,7 +284,7 @@ void EditWindow::OnPaint() {
 void EditWindow::OnKeyDown(char key) {
   switch (key) {
     case VK_BACK: {
-      if (selection_.Position() == 0) return;
+      if (selection_.Point() == 0) return;
       document_.EraseCharAt(selection_.MoveBack());
       /*
       wchar_t ch = document_.EraseCharAt(selection_.MoveBack());
@@ -276,13 +301,14 @@ void EditWindow::OnKeyDown(char key) {
       return;
     }
     case VK_RETURN: {
-      document_.InsertLineBreakBefore(selection_.Position());
+      document_.InsertLineBreakBefore(selection_.Point());
       selection_.MoveForward();
       InvalidateRect(hwnd_, nullptr, FALSE);
+      UpdateCaretPosition();
       return;
     }
     case VK_LEFT: {
-      if (selection_.Position() > 0) {
+      if (selection_.Point() > 0) {
         selection_.MoveBack();
         /*
         int pos = selection_.MoveBack();
@@ -295,8 +321,7 @@ void EditWindow::OnKeyDown(char key) {
       return;
     }
     case VK_RIGHT: {
-      if (selection_.Position() < document_.GetCharCount()) {
-        document_.GetCharAt(selection_.Position());
+      if (selection_.Point() < document_.GetCharCount()) {
         selection_.MoveForward();
         /*
         wchar_t ch = document_.GetCharAt(selection_.Position());
@@ -304,13 +329,15 @@ void EditWindow::OnKeyDown(char key) {
         if (ch == L'\r' && document_.GetCharAt(selection_.Position()) == L'\n')
           selection_.MoveForward();
         */
+//        if (document_.GetCharAt(selection_.Position()) == L'\n')
+//          DebugBreak();
         UpdateCaretPosition();
       }
       return;
     }
     case VK_DELETE: {
-      if (document_.GetCharCount() == selection_.Position()) return;
-      document_.EraseCharAt(selection_.Position());
+      if (document_.GetCharCount() == selection_.Point()) return;
+      document_.EraseCharAt(selection_.Point());
       InvalidateRect(hwnd_, nullptr, FALSE);
       UpdateCaretPosition();
       return;
@@ -320,7 +347,7 @@ void EditWindow::OnKeyDown(char key) {
 
 void EditWindow::OnChar(wchar_t ch) {
   if (ch == 0x08 || ch == 0x0d) return;
-  document_.InsertCharBefore(ch, selection_.Position());
+  document_.InsertCharBefore(ch, selection_.Point());
   selection_.MoveForward();
   InvalidateRect(hwnd_, nullptr, FALSE);
   UpdateCaretPosition();

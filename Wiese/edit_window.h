@@ -31,6 +31,8 @@ class EditWindow {
   void CreateDirect2DResources();
   void DrawLines();
   float DrawString(std::wstring_view text, float x, float y);
+  float MeasureGlyphIndicesWidth(const std::uint16_t* indices, int count);
+  float MeasureStringWidth(std::wstring_view string);
   void UpdateCaretPosition();
   float DesignUnitsToWindowCoordinates(UINT32 design_unit);
 
@@ -71,7 +73,7 @@ class EditWindow {
       assert(end_ - 1 >= 0);
       return start_ = --end_;
     }
-    int Position() const {
+    int Point() const {
       assert(IsSinglePoint());
       return start_;
     }

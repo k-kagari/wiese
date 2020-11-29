@@ -36,6 +36,12 @@ class Piece {
     rest.start_ = end_ = start_ + index;
     return rest;
   }
+  Piece Slice(int start, int end) const {
+    Piece copy(*this);
+    copy.start_ = start_ + start;
+    copy.end_ = start_ + end;
+    return copy;
+  }
   int start() const {
     assert(IsOriginal() || IsPlain());
     return start_;

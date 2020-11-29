@@ -173,3 +173,10 @@ TEST(Piece, SplitAt_shortens_itself_and_returns_the_rest) {
   EXPECT_EQ(3, rest.start());
   EXPECT_EQ(6, rest.end());
 }
+
+TEST(Piece, Slice_returns_subset_of_itself) {
+  wiese::Piece piece = wiese::Piece::MakePlain(1, 5);
+  wiese::Piece sub_piece = piece.Slice(1, 3);
+  EXPECT_EQ(2, sub_piece.start());
+  EXPECT_EQ(4, sub_piece.end());
+}
