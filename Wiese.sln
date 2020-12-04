@@ -23,10 +23,10 @@ Global
 		{3CAE0FE4-DDC8-49A9-A2AB-D99D09ABE4F0}.Release|x64.Build.0 = Release|x64
 		{3CAE0FE4-DDC8-49A9-A2AB-D99D09ABE4F0}.Release|x86.ActiveCfg = Release|Win32
 		{3CAE0FE4-DDC8-49A9-A2AB-D99D09ABE4F0}.Release|x86.Build.0 = Release|Win32
-		{3CAE0FE4-DDC8-49A9-A2AB-D99D09ABE4F0}.Testing|x64.ActiveCfg = Testing|x64
-		{3CAE0FE4-DDC8-49A9-A2AB-D99D09ABE4F0}.Testing|x64.Build.0 = Testing|x64
-		{3CAE0FE4-DDC8-49A9-A2AB-D99D09ABE4F0}.Testing|x86.ActiveCfg = Testing|Win32
-		{3CAE0FE4-DDC8-49A9-A2AB-D99D09ABE4F0}.Testing|x86.Build.0 = Testing|Win32
+		{3CAE0FE4-DDC8-49A9-A2AB-D99D09ABE4F0}.Testing|x64.ActiveCfg = UnitTest|x64
+		{3CAE0FE4-DDC8-49A9-A2AB-D99D09ABE4F0}.Testing|x64.Build.0 = UnitTest|x64
+		{3CAE0FE4-DDC8-49A9-A2AB-D99D09ABE4F0}.Testing|x86.ActiveCfg = UnitTest|Win32
+		{3CAE0FE4-DDC8-49A9-A2AB-D99D09ABE4F0}.Testing|x86.Build.0 = UnitTest|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

@@ -2,20 +2,31 @@
 #include <d2d1.h>
 #include <dwrite.h>
 
+#include <exception>
 #include <memory>
 
 #include "comptr_typedef.h"
+#include "exception.h"
 #include "main_window.h"
 
-namespace {}  // namespace
+namespace {
+
+std::exception_ptr saved_exception;
+
+}  // namespace
+
+void SaveExceptionForRethrow() noexcept {
+  saved_exception = std::current_exception();
+}
 
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR /*lpCmdLine*/,
                     int nCmdShow) {
-  CoInitialize(nullptr);
+  HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
+  if (FAILED(hr))
+    return 1;
 
   ID2D1FactoryPtr d2d;
-  HRESULT hr =
-      D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, IID_ID2D1Factory,
+  hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, IID_ID2D1Factory,
                         nullptr, reinterpret_cast<void**>(&d2d));
   if (FAILED(hr)) return 1;
 
@@ -32,6 +43,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR /*lpCmdLine*/,
 
   MSG msg;
   while (BOOL ret = GetMessageW(&msg, nullptr, 0, 0)) {
+    if (saved_exception)
+      std::rethrow_exception(saved_exception);
     if (ret == -1) break;
     TranslateMessage(&msg);
     DispatchMessageW(&msg);
@@ -39,7 +52,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR /*lpCmdLine*/,
   return 0;
 }
 
-#ifdef _DEBUG
+#if defined(_DEBUG) && !defined(UNITTEST)
 
 #include <gtest/gtest.h>
 

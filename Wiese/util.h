@@ -5,9 +5,10 @@
 
 namespace wiese {
 
-class DPIScaler {
+class ScaledAPI {
  public:
-  DPIScaler(HWND hwnd) { factor_ = GetDpiForWindow(hwnd) / 96.0f; }
+  ScaledAPI(UINT dpi) : factor_(dpi / 96.0f) {}
+  void SetDPI(UINT dpi) { factor_ = dpi / 96.f; }
   BOOL CreateCaret(HWND hWnd, HBITMAP hBitmap, int nWidth, int nHeight) {
     return ::CreateCaret(hWnd, hBitmap, Scale(nWidth), Scale(nHeight));
   }

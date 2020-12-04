@@ -1,11 +1,12 @@
 #include "main_window.h"
 
 #include <Windows.h>
-
+#include <winrt/base.h>
 #include <memory>
 
 #include "comptr_typedef.h"
 #include "edit_window.h"
+#include "exception.h"
 
 namespace wiese {
 
@@ -69,16 +70,20 @@ MainWindow* GetThis(HWND hwnd) {
 
 LRESULT CALLBACK MainWindow::WndProc(HWND hwnd, UINT msg, WPARAM wparam,
                                      LPARAM lparam) {
-  switch (msg) {
-    case WM_DESTROY:
-      PostQuitMessage(0);
-      break;
-    case WM_SIZE:
-      GetThis(hwnd)->OnSize(LOWORD(lparam), HIWORD(lparam));
-      return 0;
-    case WM_SETFOCUS:
-      GetThis(hwnd)->OnSetFocus();
-      return 0;
+  try {
+    switch (msg) {
+      case WM_DESTROY:
+        PostQuitMessage(0);
+        break;
+      case WM_SIZE:
+        GetThis(hwnd)->OnSize(LOWORD(lparam), HIWORD(lparam));
+        return 0;
+      case WM_SETFOCUS:
+        GetThis(hwnd)->OnSetFocus();
+        return 0;
+    }
+  } catch (...) {
+    SaveExceptionForRethrow();
   }
   return DefWindowProcW(hwnd, msg, wparam, lparam);
 }

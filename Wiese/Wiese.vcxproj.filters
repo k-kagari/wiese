@@ -8,6 +8,7 @@
     <ClCompile Include="document.cc" />
     <ClCompile Include="util.cc" />
     <ClCompile Include="document-test.cc" />
+    <ClCompile Include="edit_window_test.cc" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="edit_window.h" />
@@ -16,5 +17,6 @@
     <ClInclude Include="text_store.h" />
     <ClInclude Include="document.h" />
     <ClInclude Include="util.h" />
+    <ClInclude Include="exception.h" />
   </ItemGroup>
 </Project>

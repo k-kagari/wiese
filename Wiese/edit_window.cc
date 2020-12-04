@@ -1,6 +1,7 @@
 #include "edit_window.h"
 
 #include <Windows.h>
+#include <winrt/base.h>
 
 #include <algorithm>
 #include <array>
@@ -11,6 +12,7 @@
 #include <string_view>
 #include <vector>
 
+#include "exception.h"
 #include "text_store.h"
 #include "util.h"
 
@@ -39,19 +41,20 @@ ATOM RegisterWindowClass(const wchar_t* class_name, HINSTANCE hinstance,
 
 namespace wiese {
 
+ATOM EditWindow::class_atom_ = 0;
+
 EditWindow::EditWindow(ID2D1FactoryPtr d2d, IDWriteFactoryPtr dwrite,
                        ITfThreadMgrPtr tf_thread_manager,
                        ITfDocumentMgrPtr tf_document_manager, HWND hwnd)
     : d2d_(d2d),
       dwrite_(dwrite),
-      tf_thread_manager_(tf_thread_manager),
-      tf_document_manager_(tf_document_manager),
-      tf_client_id_(),
-      font_metrics_(),
       hwnd_(hwnd),
+      scaled_api_(GetDpiForWindow(hwnd)),
+      tf_thread_manager_(tf_thread_manager),
+      tf_client_id_(),
+      tf_document_manager_(tf_document_manager),
+      font_metrics_(),
       document_(L"0123456789") {}
-
-ATOM EditWindow::class_atom_ = 0;
 
 std::unique_ptr<EditWindow> EditWindow::Create(ID2D1FactoryPtr d2d,
                                                IDWriteFactoryPtr dwrite,
@@ -131,7 +134,6 @@ void EditWindow::CreateDirect2DResources() {
 }
 
 namespace {
-
 float CalculateLineHeight(const DWRITE_FONT_METRICS& metrics, int em) {
   const int line_spacing = metrics.ascent + metrics.descent + metrics.lineGap;
   return static_cast<float>(line_spacing) / metrics.designUnitsPerEm * em;
@@ -147,6 +149,8 @@ std::unique_ptr<std::uint16_t[]> StringToGlyphIndices(
                               glyph_indices.get());
   return glyph_indices;
 }
+
+bool IsKeyPressed(int key) { return GetKeyState(key) < 0; }
 
 }  // namespace
 
@@ -206,9 +210,8 @@ float EditWindow::MeasureStringWidth(std::wstring_view string) {
 void EditWindow::UpdateCaretPosition() {
   const float line_height = DesignUnitsToWindowCoordinates(
       font_metrics_.ascent + font_metrics_.descent + font_metrics_.lineGap);
-  DPIScaler scaler(hwnd_);
   if (selection_.Point() == 0) {
-    scaler.SetCaretPos(0, 0);
+    scaled_api_.SetCaretPos(0, 0);
     return;
   }
 
@@ -243,7 +246,7 @@ void EditWindow::UpdateCaretPosition() {
     }
   }
 
-  scaler.SetCaretPos(static_cast<int>(x),
+  scaled_api_.SetCaretPos(static_cast<int>(x),
                      static_cast<int>(line_height * line_count));
 }
 
@@ -254,11 +257,10 @@ float EditWindow::DesignUnitsToWindowCoordinates(UINT32 design_unit) {
 
 void EditWindow::OnSetFocus() {
   int kCaretWidth = 1;
-  DPIScaler scaler(hwnd_);
-  scaler.CreateCaret(
+  scaled_api_.CreateCaret(
       hwnd_, nullptr, kCaretWidth,
       static_cast<int>(CalculateLineHeight(font_metrics_, kFontEmSize)));
-  scaler.SetCaretPos(0, 0);
+  scaled_api_.SetCaretPos(0, 0);
   ShowCaret(hwnd_);
 }
 
@@ -285,52 +287,31 @@ void EditWindow::OnKeyDown(char key) {
   switch (key) {
     case VK_BACK: {
       if (selection_.Point() == 0) return;
-      document_.EraseCharAt(selection_.MoveBack());
-      /*
-      wchar_t ch = document_.EraseCharAt(selection_.MoveBack());
-      // If the removed character was LF, look for leading CR.
-      if (ch == L'\n' && selection_.Position() > 0) {
-        ch = document_.GetCharAt(selection_.Position() - 1);
-        if (ch == L'\r') {
-          document_.EraseCharAt(selection_.MoveBack());
-        }
-      }
-      */
+      document_.EraseCharAt(selection_.MovePointBack());
       InvalidateRect(hwnd_, nullptr, FALSE);
       UpdateCaretPosition();
       return;
     }
     case VK_RETURN: {
       document_.InsertLineBreakBefore(selection_.Point());
-      selection_.MoveForward();
+      selection_.MovePointForward();
       InvalidateRect(hwnd_, nullptr, FALSE);
       UpdateCaretPosition();
       return;
     }
     case VK_LEFT: {
       if (selection_.Point() > 0) {
-        selection_.MoveBack();
-        /*
-        int pos = selection_.MoveBack();
-        if (pos > 0 && document_.GetCharAt(pos) == L'\n' &&
-            document_.GetCharAt(pos - 1) == L'\r')
-          selection_.MoveBack();
-        */
-        UpdateCaretPosition();
+        if (!IsKeyPressed(VK_SHIFT)) {
+          selection_.MovePointBack();
+          UpdateCaretPosition();
+        } else {
+        }
       }
       return;
     }
     case VK_RIGHT: {
       if (selection_.Point() < document_.GetCharCount()) {
-        selection_.MoveForward();
-        /*
-        wchar_t ch = document_.GetCharAt(selection_.Position());
-        selection_.MoveForward();
-        if (ch == L'\r' && document_.GetCharAt(selection_.Position()) == L'\n')
-          selection_.MoveForward();
-        */
-//        if (document_.GetCharAt(selection_.Position()) == L'\n')
-//          DebugBreak();
+        selection_.MovePointForward();
         UpdateCaretPosition();
       }
       return;
@@ -348,7 +329,7 @@ void EditWindow::OnKeyDown(char key) {
 void EditWindow::OnChar(wchar_t ch) {
   if (ch == 0x08 || ch == 0x0d) return;
   document_.InsertCharBefore(ch, selection_.Point());
-  selection_.MoveForward();
+  selection_.MovePointForward();
   InvalidateRect(hwnd_, nullptr, FALSE);
   UpdateCaretPosition();
 }
@@ -363,25 +344,28 @@ EditWindow* GetThis(HWND hwnd) {
 
 LRESULT CALLBACK EditWindow::WndProc(HWND hwnd, UINT msg, WPARAM wparam,
                                      LPARAM lparam) {
-  switch (msg) {
-    case WM_SETFOCUS:
-      GetThis(hwnd)->OnSetFocus();
-      return 0;
-    case WM_KILLFOCUS:
-      GetThis(hwnd)->OnKillFocus();
-      return 0;
-    case WM_PAINT: {
-      GetThis(hwnd)->OnPaint();
-      return 0;
+  try {
+    switch (msg) {
+      case WM_SETFOCUS:
+        GetThis(hwnd)->OnSetFocus();
+        return 0;
+      case WM_KILLFOCUS:
+        GetThis(hwnd)->OnKillFocus();
+        return 0;
+      case WM_PAINT:
+        GetThis(hwnd)->OnPaint();
+        return 0;
+      case WM_ERASEBKGND:
+        return 1;
+      case WM_KEYDOWN:
+        GetThis(hwnd)->OnKeyDown(static_cast<char>(wparam));
+        return 0;
+      case WM_CHAR:
+        GetThis(hwnd)->OnChar(static_cast<wchar_t>(wparam));
+        return 0;
     }
-    case WM_ERASEBKGND:
-      return 1;
-    case WM_KEYDOWN:
-      GetThis(hwnd)->OnKeyDown(static_cast<char>(wparam));
-      return 0;
-    case WM_CHAR:
-      GetThis(hwnd)->OnChar(static_cast<wchar_t>(wparam));
-      return 0;
+  } catch (...) {
+    SaveExceptionForRethrow();
   }
   return DefWindowProcW(hwnd, msg, wparam, lparam);
 }

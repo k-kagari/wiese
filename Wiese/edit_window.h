@@ -10,6 +10,7 @@
 
 #include "comptr_typedef.h"
 #include "document.h"
+#include "util.h"
 
 namespace wiese {
 
@@ -22,6 +23,51 @@ class EditWindow {
                                             int width, int height);
 
   HWND Handle() const { return hwnd_; }
+
+  class Selection {
+   public:
+    Selection() : start_(0), end_(0) {}
+    Selection(int start, int end) : start_(start), end_(end) {
+      assert(start <= end);
+    }
+    int MovePointForward() {
+      assert(IsSinglePoint());
+      return start_ = ++end_;
+    }
+    int MovePointBack() {
+      assert(IsSinglePoint());
+      assert(end_ - 1 >= 0);
+      return start_ = --end_;
+    }
+    int MoveStartPosBack() {
+      assert(start_);
+      return --start_;
+    }
+    int MoveStartPosForward() {
+      ++start_;
+      assert(start_ <= end_);
+      return start_;
+    }
+    int MoveEndPosBack() {
+      --end_;
+      assert(start_ <= end_);
+      return end_;
+    }
+    int MoveEndPosForward() {
+      ++end_;
+      return end_;
+    }
+    int Point() const {
+      assert(IsSinglePoint());
+      return start_;
+    }
+    bool IsSinglePoint() const { return start_ == end_; }
+    bool IsRange() const { return start_ != end_; }
+
+   private:
+    int start_;
+    int end_;
+  };
 
  private:
   EditWindow(ID2D1FactoryPtr d2d, IDWriteFactoryPtr dwrite,
@@ -45,9 +91,12 @@ class EditWindow {
   static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam,
                                   LPARAM lparam);
 
+  static constexpr int kFontEmSize = 16;
+
   ID2D1FactoryPtr d2d_;
   IDWriteFactoryPtr dwrite_;
   HWND hwnd_;
+  ScaledAPI scaled_api_;
   static ATOM class_atom_;
 
   ID2D1HwndRenderTargetPtr render_target_;
@@ -60,33 +109,7 @@ class EditWindow {
   ITfDocumentMgrPtr tf_document_manager_;
 
   Document document_;
-
-  class Selection {
-   public:
-    Selection() : start_(0), end_(0) {}
-    int MoveForward() {
-      assert(IsSinglePoint());
-      return start_ = ++end_;
-    }
-    int MoveBack() {
-      assert(IsSinglePoint());
-      assert(end_ - 1 >= 0);
-      return start_ = --end_;
-    }
-    int Point() const {
-      assert(IsSinglePoint());
-      return start_;
-    }
-    bool IsSinglePoint() const { return start_ == end_; }
-    bool IsRange() const { return start_ != end_; }
-
-   private:
-    int start_;
-    int end_;
-  };
   Selection selection_;
-
-  static constexpr int kFontEmSize = 32;
 };
 
 }  // namespace wiese
