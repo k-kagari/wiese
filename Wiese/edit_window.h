@@ -11,18 +11,15 @@
 #include "comptr_typedef.h"
 #include "document.h"
 #include "util.h"
+#include "window_base.h"
 
 namespace wiese {
 
-class EditWindow {
+class EditWindow : public WindowBase {
  public:
+  EditWindow(HINSTANCE hinstance, ID2D1FactoryPtr d2d, IDWriteFactoryPtr dwrite,
+             HWND parent, int x, int y, int width, int height);
   ~EditWindow();
-  static std::unique_ptr<EditWindow> Create(ID2D1FactoryPtr d2d,
-                                            IDWriteFactoryPtr dwrite,
-                                            HWND parent, int x, int y,
-                                            int width, int height);
-
-  HWND Handle() const { return hwnd_; }
 
   class Selection {
    public:
@@ -70,10 +67,6 @@ class EditWindow {
   };
 
  private:
-  EditWindow(ID2D1FactoryPtr d2d, IDWriteFactoryPtr dwrite,
-             ITfThreadMgrPtr tf_thread_manager,
-             ITfDocumentMgrPtr tf_document_manager, HWND hwnd);
-
   void CreateDirect2DResources();
   void DrawLines();
   float DrawString(std::wstring_view text, float x, float y);
@@ -88,16 +81,14 @@ class EditWindow {
   void OnKeyDown(char key);
   void OnChar(wchar_t ch);
 
-  static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam,
-                                  LPARAM lparam);
+  LRESULT WindowProcedure(HWND hwnd, UINT msg, WPARAM wp,
+                                  LPARAM lp) override;
 
   static constexpr int kFontEmSize = 16;
 
   ID2D1FactoryPtr d2d_;
   IDWriteFactoryPtr dwrite_;
-  HWND hwnd_;
   ScaledAPI scaled_api_;
-  static ATOM class_atom_;
 
   ID2D1HwndRenderTargetPtr render_target_;
   IDWriteFontFacePtr font_face_;

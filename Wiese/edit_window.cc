@@ -12,85 +12,29 @@
 #include <string_view>
 #include <vector>
 
-#include "exception.h"
 #include "text_store.h"
 #include "util.h"
 
-namespace {
-
-ATOM RegisterWindowClass(const wchar_t* class_name, HINSTANCE hinstance,
-                         WNDPROC wndproc) {
-  WNDCLASSEX wc;
-  wc.cbSize = sizeof(wc);
-  wc.style = 0;
-  wc.lpfnWndProc = wndproc;
-  wc.cbClsExtra = 0;
-  wc.cbWndExtra = 0;
-  wc.hInstance = hinstance;
-  wc.hIcon = nullptr;
-  wc.hCursor = static_cast<HCURSOR>(LoadImageW(
-      nullptr, IDC_ARROW, IMAGE_CURSOR, 0, 0, LR_DEFAULTSIZE | LR_SHARED));
-  wc.hbrBackground = nullptr;
-  wc.lpszMenuName = nullptr;
-  wc.lpszClassName = class_name;
-  wc.hIconSm = nullptr;
-  return RegisterClassExW(&wc);
-}
-
-}  // namespace
-
 namespace wiese {
 
-ATOM EditWindow::class_atom_ = 0;
-
-EditWindow::EditWindow(ID2D1FactoryPtr d2d, IDWriteFactoryPtr dwrite,
-                       ITfThreadMgrPtr tf_thread_manager,
-                       ITfDocumentMgrPtr tf_document_manager, HWND hwnd)
-    : d2d_(d2d),
+EditWindow::EditWindow(HINSTANCE hinstance, ID2D1FactoryPtr d2d,
+                       IDWriteFactoryPtr dwrite, HWND parent, int x, int y,
+                       int width, int height)
+    : WindowBase(hinstance, L"WieseEditWindowClass", 0, L"WieseEditWindow",
+                 WS_CHILD | WS_VISIBLE, x, y, width, height, parent),
+      d2d_(d2d),
       dwrite_(dwrite),
-      hwnd_(hwnd),
-      scaled_api_(GetDpiForWindow(hwnd)),
-      tf_thread_manager_(tf_thread_manager),
-      tf_client_id_(),
-      tf_document_manager_(tf_document_manager),
-      font_metrics_(),
-      document_(L"0123456789") {}
+      document_(L"0123456789") {
+  scaled_api_.SetDPI(GetDpiForWindow(hwnd()));
 
-std::unique_ptr<EditWindow> EditWindow::Create(ID2D1FactoryPtr d2d,
-                                               IDWriteFactoryPtr dwrite,
-                                               HWND parent, int x, int y,
-                                               int width, int height) {
-  static const wchar_t* const kClassName = L"WieseEditWindowClass";
+  winrt::check_hresult(CoCreateInstance(
+      CLSID_TF_ThreadMgr, nullptr, CLSCTX_INPROC_SERVER, IID_ITfThreadMgr,
+      reinterpret_cast<void**>(&tf_thread_manager_)));
+  winrt::check_hresult(
+      tf_thread_manager_->CreateDocumentMgr(&tf_document_manager_));
+  tf_thread_manager_->Activate(&tf_client_id_);
 
-  HINSTANCE hinstance =
-      reinterpret_cast<HINSTANCE>(GetWindowLongPtrW(parent, GWLP_HINSTANCE));
-
-  if (!class_atom_) {
-    class_atom_ = RegisterWindowClass(kClassName, hinstance, WndProc);
-    if (!class_atom_) return nullptr;
-  }
-
-  HWND hwnd =
-      CreateWindowExW(0, kClassName, L"WieseEditWindow", WS_CHILD | WS_VISIBLE,
-                      x, y, width, height, parent, nullptr, hinstance, nullptr);
-  if (!hwnd) return nullptr;
-
-  ITfThreadMgrPtr thread_manager;
-  HRESULT hr = CoCreateInstance(CLSID_TF_ThreadMgr, nullptr,
-                                CLSCTX_INPROC_SERVER, IID_ITfThreadMgr,
-                                reinterpret_cast<void**>(&thread_manager));
-  if (FAILED(hr)) return nullptr;
-
-  ITfDocumentMgrPtr document_manager;
-  hr = thread_manager->CreateDocumentMgr(&document_manager);
-  if (FAILED(hr)) return nullptr;
-
-  std::unique_ptr<EditWindow> window(
-      new EditWindow(d2d, dwrite, thread_manager, document_manager, hwnd));
-  SetWindowLongPtr(hwnd, GWLP_USERDATA,
-                   reinterpret_cast<LONG_PTR>(window.get()));
-  thread_manager->Activate(&window->tf_client_id_);
-  window->CreateDirect2DResources();
+  CreateDirect2DResources();
 
   IDWriteFontCollectionPtr font_collection;
   dwrite->GetSystemFontCollection(&font_collection);
@@ -98,36 +42,32 @@ std::unique_ptr<EditWindow> EditWindow::Create(ID2D1FactoryPtr d2d,
   UINT32 index;
   BOOL exists;
   font_collection->FindFamilyName(L"Meiryo", &index, &exists);
-  if (!exists) return nullptr;
+  winrt::check_bool(exists);
 
   IDWriteFontFamilyPtr font_family;
   font_collection->GetFontFamily(index, &font_family);
-  if (!font_family) return nullptr;
+  winrt::check_pointer(font_family.GetInterfacePtr());
 
   IDWriteFontPtr font;
   font_family->GetFirstMatchingFont(DWRITE_FONT_WEIGHT_NORMAL,
                                     DWRITE_FONT_STRETCH_NORMAL,
                                     DWRITE_FONT_STYLE_NORMAL, &font);
-  if (!font) return nullptr;
+  winrt::check_pointer(font.GetInterfacePtr());
 
-  IDWriteFontFacePtr font_face;
-  font->CreateFontFace(&font_face);
-  if (!font_face) return nullptr;
-  window->font_face_ = font_face;
-  font->GetMetrics(&window->font_metrics_);
-
-  return window;
+  font->CreateFontFace(&font_face_);
+  winrt::check_pointer(font_face_.GetInterfacePtr());
+  font->GetMetrics(&font_metrics_);
 }
 
 EditWindow::~EditWindow() { tf_thread_manager_->Deactivate(); }
 
 void EditWindow::CreateDirect2DResources() {
   RECT rect;
-  GetClientRect(hwnd_, &rect);
+  GetClientRect(hwnd(), &rect);
   D2D1_SIZE_U size =
       D2D1::SizeU(rect.right - rect.left, rect.bottom - rect.top);
   d2d_->CreateHwndRenderTarget(D2D1::RenderTargetProperties(),
-                               D2D1::HwndRenderTargetProperties(hwnd_, size),
+                               D2D1::HwndRenderTargetProperties(hwnd(), size),
                                &render_target_);
   render_target_->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Black),
                                         &brush_);
@@ -247,7 +187,7 @@ void EditWindow::UpdateCaretPosition() {
   }
 
   scaled_api_.SetCaretPos(static_cast<int>(x),
-                     static_cast<int>(line_height * line_count));
+                          static_cast<int>(line_height * line_count));
 }
 
 float EditWindow::DesignUnitsToWindowCoordinates(UINT32 design_unit) {
@@ -258,18 +198,18 @@ float EditWindow::DesignUnitsToWindowCoordinates(UINT32 design_unit) {
 void EditWindow::OnSetFocus() {
   int kCaretWidth = 1;
   scaled_api_.CreateCaret(
-      hwnd_, nullptr, kCaretWidth,
+      hwnd(), nullptr, kCaretWidth,
       static_cast<int>(CalculateLineHeight(font_metrics_, kFontEmSize)));
   scaled_api_.SetCaretPos(0, 0);
-  ShowCaret(hwnd_);
+  ShowCaret(hwnd());
 }
 
 void EditWindow::OnKillFocus() { DestroyCaret(); }
 
 void EditWindow::OnPaint() {
-  HideCaret(hwnd_);
+  HideCaret(hwnd());
 
-  ValidateRect(hwnd_, nullptr);
+  ValidateRect(hwnd(), nullptr);
 
   render_target_->BeginDraw();
   render_target_->Clear(D2D1::ColorF(D2D1::ColorF::FloralWhite, 1.0f));
@@ -280,7 +220,7 @@ void EditWindow::OnPaint() {
   HRESULT hr = render_target_->EndDraw();
   if (hr == D2DERR_RECREATE_TARGET) CreateDirect2DResources();
 
-  ShowCaret(hwnd_);
+  ShowCaret(hwnd());
 }
 
 void EditWindow::OnKeyDown(char key) {
@@ -288,14 +228,14 @@ void EditWindow::OnKeyDown(char key) {
     case VK_BACK: {
       if (selection_.Point() == 0) return;
       document_.EraseCharAt(selection_.MovePointBack());
-      InvalidateRect(hwnd_, nullptr, FALSE);
+      InvalidateRect(hwnd(), nullptr, FALSE);
       UpdateCaretPosition();
       return;
     }
     case VK_RETURN: {
       document_.InsertLineBreakBefore(selection_.Point());
       selection_.MovePointForward();
-      InvalidateRect(hwnd_, nullptr, FALSE);
+      InvalidateRect(hwnd(), nullptr, FALSE);
       UpdateCaretPosition();
       return;
     }
@@ -319,7 +259,7 @@ void EditWindow::OnKeyDown(char key) {
     case VK_DELETE: {
       if (document_.GetCharCount() == selection_.Point()) return;
       document_.EraseCharAt(selection_.Point());
-      InvalidateRect(hwnd_, nullptr, FALSE);
+      InvalidateRect(hwnd(), nullptr, FALSE);
       UpdateCaretPosition();
       return;
     }
@@ -330,44 +270,31 @@ void EditWindow::OnChar(wchar_t ch) {
   if (ch == 0x08 || ch == 0x0d) return;
   document_.InsertCharBefore(ch, selection_.Point());
   selection_.MovePointForward();
-  InvalidateRect(hwnd_, nullptr, FALSE);
+  InvalidateRect(hwnd(), nullptr, FALSE);
   UpdateCaretPosition();
 }
 
-namespace {
-
-EditWindow* GetThis(HWND hwnd) {
-  return reinterpret_cast<EditWindow*>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
-}
-
-}  // namespace
-
-LRESULT CALLBACK EditWindow::WndProc(HWND hwnd, UINT msg, WPARAM wparam,
-                                     LPARAM lparam) {
-  try {
-    switch (msg) {
-      case WM_SETFOCUS:
-        GetThis(hwnd)->OnSetFocus();
-        return 0;
-      case WM_KILLFOCUS:
-        GetThis(hwnd)->OnKillFocus();
-        return 0;
-      case WM_PAINT:
-        GetThis(hwnd)->OnPaint();
-        return 0;
-      case WM_ERASEBKGND:
-        return 1;
-      case WM_KEYDOWN:
-        GetThis(hwnd)->OnKeyDown(static_cast<char>(wparam));
-        return 0;
-      case WM_CHAR:
-        GetThis(hwnd)->OnChar(static_cast<wchar_t>(wparam));
-        return 0;
-    }
-  } catch (...) {
-    SaveExceptionForRethrow();
+LRESULT EditWindow::WindowProcedure(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
+  switch (msg) {
+    case WM_SETFOCUS:
+      OnSetFocus();
+      return 0;
+    case WM_KILLFOCUS:
+      OnKillFocus();
+      return 0;
+    case WM_PAINT:
+      OnPaint();
+      return 0;
+    case WM_ERASEBKGND:
+      return 1;
+    case WM_KEYDOWN:
+      OnKeyDown(static_cast<char>(wp));
+      return 0;
+    case WM_CHAR:
+      OnChar(static_cast<wchar_t>(wp));
+      return 0;
   }
-  return DefWindowProcW(hwnd, msg, wparam, lparam);
+  return DefWindowProcW(hwnd, msg, wp, lp);
 }
 
 }  // namespace wiese

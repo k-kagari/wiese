@@ -35,11 +35,9 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR /*lpCmdLine*/,
                            reinterpret_cast<IUnknown**>(&dwrite));
   if (FAILED(hr)) return 1;
 
-  std::unique_ptr<wiese::MainWindow> window =
-      wiese::MainWindow::Create(hInstance, d2d, dwrite);
-  if (!window) return 1;
-  ShowWindow(window->Handle(), nCmdShow);
-  UpdateWindow(window->Handle());
+  wiese::MainWindow window(hInstance, d2d, dwrite);
+  ShowWindow(window.hwnd(), nCmdShow);
+  UpdateWindow(window.hwnd());
 
   MSG msg;
   while (BOOL ret = GetMessageW(&msg, nullptr, 0, 0)) {

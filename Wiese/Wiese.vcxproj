@@ -127,7 +127,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>d2d1.lib;dwrite.lib;gtestd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>d2d1.lib;dwrite.lib;WindowsApp.lib;gtestd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>C:\Program Files (x86)\googletest-distribution\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <Manifest>
@@ -221,6 +221,7 @@
     <ClCompile Include="main.cc" />
     <ClCompile Include="main_window.cc" />
     <ClCompile Include="text_store.cc" />
+    <ClCompile Include="window_base.cc" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="comptr_typedef.h" />
@@ -230,6 +231,7 @@
     <ClInclude Include="main_window.h" />
     <ClInclude Include="text_store.h" />
     <ClInclude Include="util.h" />
+    <ClInclude Include="window_base.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
