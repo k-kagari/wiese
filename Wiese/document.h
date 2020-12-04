@@ -37,10 +37,10 @@ class Piece {
     return rest;
   }
   Piece Slice(int start, int end) const {
-    Piece copy(*this);
-    copy.start_ = start_ + start;
-    copy.end_ = start_ + end;
-    return copy;
+    Piece sub_piece(*this);
+    sub_piece.start_ = start_ + start;
+    sub_piece.end_ = start_ + end;
+    return sub_piece;
   }
   int start() const {
     assert(IsOriginal() || IsPlain());
@@ -97,7 +97,7 @@ class Document {
   wchar_t GetCharInPiece(const Piece& piece, int index) const;
 
   PieceList pieces_;
-  std::vector<wchar_t> original_;
+  const std::vector<wchar_t> original_;
   std::vector<wchar_t> added_;
 };
 

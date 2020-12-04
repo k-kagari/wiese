@@ -67,7 +67,8 @@ class EditWindow : public WindowBase {
   };
 
  private:
-  void CreateDirect2DResources();
+  void CreateDeviceResources();
+  void DiscardDeviceResources();
   void DrawLines();
   float DrawString(std::wstring_view text, float x, float y);
   float MeasureGlyphIndicesWidth(const std::uint16_t* indices, int count);

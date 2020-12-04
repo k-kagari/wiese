@@ -8,6 +8,7 @@
 #include <iterator>
 #include <optional>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -30,6 +31,7 @@ void Dump(T t, Args... args) {
 #else
 #define TRACE(...)
 #endif
+#define UNREACHABLE assert(false)
 
 namespace wiese {
 
@@ -51,11 +53,9 @@ Piece Piece::MakePlain(int start, int end) {
 
 Piece Piece::MakeLineBreak() { return Piece(Kind::kLineBreak); }
 
-Document::Document(const wchar_t* original_text) {
-  std::size_t length = std::wcslen(original_text);
-  if (length == 0) return;
-  original_.assign(original_text, original_text + length);
-  pieces_.push_front(Piece::MakeOriginal(0, length));
+Document::Document(const wchar_t* original_text)
+    : original_(original_text, original_text + std::wcslen(original_text)) {
+  pieces_.push_front(Piece::MakeOriginal(0, original_.size()));
 }
 
 Piece Document::AddCharsToBuffer(const wchar_t* chars, int count) {
@@ -73,7 +73,7 @@ wchar_t Document::GetCharInPiece(const Piece& piece, int index) const {
   } else if (piece.IsLineBreak()) {
     return L'\n';
   }
-  assert(false);
+  UNREACHABLE;
   return 0;
 }
 
@@ -88,7 +88,7 @@ std::wstring_view Document::GetCharsInPiece(const Piece& piece) const {
     static const wchar_t kLF = L'\n';
     return {&kLF, 1};
   }
-  assert(false);
+  UNREACHABLE;
   return {};
 }
 
@@ -125,7 +125,7 @@ void Document::InsertCharsBefore(const wchar_t* chars, int count,
     }
     offset += piece_size;
   }
-  assert(false);  // Unreachable.
+  UNREACHABLE;
 }
 
 void Document::InsertCharBefore(wchar_t ch, int position) {
@@ -160,7 +160,7 @@ void Document::InsertLineBreakBefore(int position) {
     }
     offset += piece_size;
   }
-  assert(false);  // Unreachable.
+  UNREACHABLE;
 }
 
 wchar_t Document::EraseCharAt(int position) {
@@ -200,16 +200,16 @@ wchar_t Document::EraseCharAt(int position) {
       return ch;
     }
     if (position < offset + piece_size - 1) {
-      Piece latter_half = it->SplitAt(position - offset);
-      assert(latter_half.GetCharCount() > 1);
-      wchar_t ch = GetCharInPiece(latter_half, 0);
-      latter_half.set_start(latter_half.start() + 1);
-      pieces_.insert(++it, latter_half);
+      Piece rest = it->SplitAt(position - offset);
+      assert(rest.GetCharCount() > 1);
+      wchar_t ch = GetCharInPiece(rest, 0);
+      rest.set_start(rest.start() + 1);
+      pieces_.insert(++it, rest);
       return ch;
     }
     offset += piece_size;
   }
-  assert(false);  // Unreachable.
+  UNREACHABLE;
   return 0;
 }
 
@@ -239,7 +239,7 @@ wchar_t Document::GetCharAt(int position) const {
     }
     offset += piece.GetCharCount();
   }
-  assert(false);  // Unreachable.
+  UNREACHABLE;
   return L'\0';
 }
 

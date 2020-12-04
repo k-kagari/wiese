@@ -27,14 +27,11 @@ EditWindow::EditWindow(HINSTANCE hinstance, ID2D1FactoryPtr d2d,
       document_(L"0123456789") {
   scaled_api_.SetDPI(GetDpiForWindow(hwnd()));
 
-  winrt::check_hresult(CoCreateInstance(
-      CLSID_TF_ThreadMgr, nullptr, CLSCTX_INPROC_SERVER, IID_ITfThreadMgr,
-      reinterpret_cast<void**>(&tf_thread_manager_)));
+  winrt::check_hresult(tf_thread_manager_.CreateInstance(
+      CLSID_TF_ThreadMgr, nullptr, CLSCTX_INPROC_SERVER));
   winrt::check_hresult(
       tf_thread_manager_->CreateDocumentMgr(&tf_document_manager_));
   tf_thread_manager_->Activate(&tf_client_id_);
-
-  CreateDirect2DResources();
 
   IDWriteFontCollectionPtr font_collection;
   dwrite->GetSystemFontCollection(&font_collection);
@@ -61,19 +58,29 @@ EditWindow::EditWindow(HINSTANCE hinstance, ID2D1FactoryPtr d2d,
 
 EditWindow::~EditWindow() { tf_thread_manager_->Deactivate(); }
 
-void EditWindow::CreateDirect2DResources() {
+void EditWindow::CreateDeviceResources() {
   RECT rect;
   GetClientRect(hwnd(), &rect);
   D2D1_SIZE_U size =
       D2D1::SizeU(rect.right - rect.left, rect.bottom - rect.top);
-  d2d_->CreateHwndRenderTarget(D2D1::RenderTargetProperties(),
-                               D2D1::HwndRenderTargetProperties(hwnd(), size),
-                               &render_target_);
-  render_target_->CreateSolidColorBrush(D2D1::ColorF(D2D1::ColorF::Black),
-                                        &brush_);
+  ID2D1HwndRenderTargetPtr render_target;
+  winrt::check_hresult(d2d_->CreateHwndRenderTarget(
+      D2D1::RenderTargetProperties(),
+      D2D1::HwndRenderTargetProperties(hwnd(), size), &render_target));
+  ID2D1SolidColorBrushPtr brush;
+  winrt::check_hresult(render_target->CreateSolidColorBrush(
+      D2D1::ColorF(D2D1::ColorF::Black), &brush));
+  render_target_ = std::move(render_target);
+  brush_ = std::move(brush);
+}
+
+void EditWindow::DiscardDeviceResources() {
+  brush_ = nullptr;
+  render_target_ = nullptr;
 }
 
 namespace {
+
 float CalculateLineHeight(const DWRITE_FONT_METRICS& metrics, int em) {
   const int line_spacing = metrics.ascent + metrics.descent + metrics.lineGap;
   return static_cast<float>(line_spacing) / metrics.designUnitsPerEm * em;
@@ -208,9 +215,10 @@ void EditWindow::OnKillFocus() { DestroyCaret(); }
 
 void EditWindow::OnPaint() {
   HideCaret(hwnd());
-
   ValidateRect(hwnd(), nullptr);
-
+  if (!render_target_) {
+    CreateDeviceResources();
+  }
   render_target_->BeginDraw();
   render_target_->Clear(D2D1::ColorF(D2D1::ColorF::FloralWhite, 1.0f));
 
@@ -218,7 +226,10 @@ void EditWindow::OnPaint() {
   DrawLines();
 
   HRESULT hr = render_target_->EndDraw();
-  if (hr == D2DERR_RECREATE_TARGET) CreateDirect2DResources();
+  if (hr == D2DERR_RECREATE_TARGET) {
+    DiscardDeviceResources();
+    InvalidateRect(hwnd(), nullptr, FALSE);
+  }
 
   ShowCaret(hwnd());
 }

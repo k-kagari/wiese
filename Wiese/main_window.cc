@@ -1,7 +1,6 @@
 #include "main_window.h"
 
 #include <Windows.h>
-#include <winrt/base.h>
 
 #include <memory>
 
