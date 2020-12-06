@@ -123,6 +123,9 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>C:\Program Files (x86)\googletest-distribution\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <TreatWarningAsError>true</TreatWarningAsError>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <ForcedIncludeFiles>precompile.h</ForcedIncludeFiles>
+      <PrecompiledHeaderFile>precompile.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -215,6 +218,9 @@
       </ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="edit_window_test.cc" />
+    <ClCompile Include="precompile.cc">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="util.cc" />
     <ClCompile Include="document.cc" />
     <ClCompile Include="edit_window.cc" />
@@ -229,6 +235,7 @@
     <ClInclude Include="edit_window.h" />
     <ClInclude Include="exception.h" />
     <ClInclude Include="main_window.h" />
+    <ClInclude Include="precompile.h" />
     <ClInclude Include="text_store.h" />
     <ClInclude Include="util.h" />
     <ClInclude Include="window_base.h" />

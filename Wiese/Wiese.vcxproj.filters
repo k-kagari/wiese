@@ -10,6 +10,7 @@
     <ClCompile Include="document-test.cc" />
     <ClCompile Include="edit_window_test.cc" />
     <ClCompile Include="window_base.cc" />
+    <ClCompile Include="precompile.cc" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="edit_window.h" />
@@ -20,5 +21,6 @@
     <ClInclude Include="util.h" />
     <ClInclude Include="exception.h" />
     <ClInclude Include="window_base.h" />
+    <ClInclude Include="precompile.h" />
   </ItemGroup>
 </Project>
