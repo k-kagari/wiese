@@ -3,12 +3,38 @@
 #include <gtest/gtest.h>
 
 #include <cstring>
+#include <ostream>
 
 constexpr const wchar_t* kText = L"0123456789";
+constexpr const wchar_t* kMultiLineText = L"01234\n6789a";
+
+namespace wiese {
+
+std::ostream& operator<<(std::ostream& os, const Piece& piece) {
+  if (piece.IsOriginal()) {
+    return os << "Original(" << piece.start() << "," << piece.end() << ")";
+  } else if (piece.IsPlain()) {
+    return os << "Plain(" << piece.start() << "," << piece.end() << ")";
+  } else if (piece.IsLineBreak()) {
+    return os << "LineBreak";
+  }
+  assert(false);
+  return os;
+}
+
+}  // namespace wiese
 
 TEST(Document, Constructor) {
   wiese::Document doc(kText);
   EXPECT_EQ(kText, doc.GetText());
+}
+
+TEST(Document, Constructor_ConvertLFIntoLineBreak) {
+  wiese::Document doc(kMultiLineText);
+  auto it = doc.PieceIteratorBegin();
+  EXPECT_EQ(wiese::Piece::MakeOriginal(0, 5), *it);
+  EXPECT_EQ(wiese::Piece::MakeLineBreak(), *++it);
+  EXPECT_EQ(wiese::Piece::MakeOriginal(6, 11), *++it);
 }
 
 TEST(Document, GetCharCount) {
@@ -97,6 +123,24 @@ TEST(Document, EraseCharAt_End) {
   wiese::Document doc(kText);
   EXPECT_EQ(L'9', doc.EraseCharAt(9));
   EXPECT_EQ(L"012345678", doc.GetText());
+}
+
+TEST(Document, EraseCharAt_ByLineAndOffset_1) {
+  wiese::Document doc(kMultiLineText);
+  EXPECT_EQ(L'4', doc.EraseCharAt(0, 4));
+  EXPECT_EQ(L"0123\n6789a", doc.GetText());
+}
+
+TEST(Document, EraseCharAt_ByLineAndOffset_2) {
+  wiese::Document doc(kMultiLineText);
+  EXPECT_EQ(L'\n', doc.EraseCharAt(0, 5));
+  EXPECT_EQ(L"012346789a", doc.GetText());
+}
+
+TEST(Document, EraseCharAt_ByLineAndOffset_3) {
+  wiese::Document doc(kMultiLineText);
+  EXPECT_EQ(L'6', doc.EraseCharAt(1, 0));
+  EXPECT_EQ(L"01234\n789a", doc.GetText());
 }
 
 TEST(Document, RegressionCase1) {

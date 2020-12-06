@@ -15,6 +15,35 @@
 
 namespace wiese {
 
+struct SelectionPoint {
+  int line;
+  int offset;
+
+  SelectionPoint() : line(0), offset(0) {}
+  SelectionPoint(int line, int offset) : line(line), offset(offset) {}
+  bool operator==(const SelectionPoint& rhs) const {
+    return line == rhs.line && offset == rhs.offset;
+  }
+  bool operator!=(const SelectionPoint& rhs) const { return !operator==(rhs); }
+};
+
+class Selection2 {
+  public:
+  Selection2() : start_(), end_() {}
+  Selection2(const SelectionPoint& start, const SelectionPoint& end)
+      : start_(start), end_(end) {}
+  bool IsSinglePoint() const { return start_ == end_; }
+  bool IsRange() const { return start_ != end_; }
+  SelectionPoint Point() {
+    assert(IsSinglePoint());
+    return start_;
+  }
+
+ private:
+  SelectionPoint start_;
+  SelectionPoint end_;
+};
+
 class EditWindow : public WindowBase {
  public:
   EditWindow(HINSTANCE hinstance, ID2D1FactoryPtr d2d, IDWriteFactoryPtr dwrite,
@@ -82,8 +111,7 @@ class EditWindow : public WindowBase {
   void OnKeyDown(char key);
   void OnChar(wchar_t ch);
 
-  LRESULT WindowProcedure(HWND hwnd, UINT msg, WPARAM wp,
-                                  LPARAM lp) override;
+  LRESULT WindowProcedure(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) override;
 
   static constexpr int kFontEmSize = 16;
 
@@ -101,7 +129,7 @@ class EditWindow : public WindowBase {
   ITfDocumentMgrPtr tf_document_manager_;
 
   Document document_;
-  Selection selection_;
+  Selection2 selection_;
 };
 
 }  // namespace wiese

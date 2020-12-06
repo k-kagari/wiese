@@ -47,3 +47,27 @@ TEST(Selection, MoveEndPosForward) {
   auto sel = wiese::EditWindow::Selection(2, 4);
   EXPECT_EQ(5, sel.MoveEndPosForward());
 }
+
+TEST(Selection2, IsSinglePointReturnsTrueWhenStartIsSameToEnd) {
+  wiese::Selection2 sel(wiese::SelectionPoint(1, 1),
+                        wiese::SelectionPoint(1, 1));
+  EXPECT_TRUE(sel.IsSinglePoint());
+}
+
+TEST(Selection2, IsSinglePointReturnsFalseWhenStartAndEndIsNotTheSame) {
+  wiese::Selection2 sel(wiese::SelectionPoint(1, 1),
+                        wiese::SelectionPoint(2, 2));
+  EXPECT_FALSE(sel.IsSinglePoint());
+}
+
+TEST(Selection2, IsRangeReturnsFalseWhenStartIsSameToEnd) {
+  wiese::Selection2 sel(wiese::SelectionPoint(1, 1),
+                        wiese::SelectionPoint(1, 1));
+  EXPECT_FALSE(sel.IsRange());
+}
+
+TEST(Selection2, IsRangeReturnsTrueWhenStartAndEndIsNotTheSame) {
+  wiese::Selection2 sel(wiese::SelectionPoint(1, 1),
+                        wiese::SelectionPoint(2, 2));
+  EXPECT_TRUE(sel.IsRange());
+}

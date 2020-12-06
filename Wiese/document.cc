@@ -55,7 +55,18 @@ Piece Piece::MakeLineBreak() { return Piece(Kind::kLineBreak); }
 
 Document::Document(const wchar_t* original_text)
     : original_(original_text, original_text + std::wcslen(original_text)) {
-  pieces_.push_front(Piece::MakeOriginal(0, original_.size()));
+  int start = 0;
+  for (int i = 0; i < original_.size(); ++i) {
+    if (original_[i] == L'\n') {
+      pieces_.push_back(Piece::MakeOriginal(start, i));
+      pieces_.push_back(Piece::MakeLineBreak());
+      ++i;
+      start = i;
+    }
+  }
+  if (original_.size() - start > 0) {
+    pieces_.push_back(Piece::MakeOriginal(start, original_.size()));
+  }
 }
 
 Piece Document::AddCharsToBuffer(const wchar_t* chars, int count) {
@@ -163,52 +174,93 @@ void Document::InsertLineBreakBefore(int position) {
   UNREACHABLE;
 }
 
+wchar_t Document::EraseCharInFrontOf(PieceList::iterator it) {
+  if (it->GetCharCount() == 1) {
+    wchar_t ch = GetCharInPiece(*it, 0);
+    pieces_.erase(it);
+    return ch;
+  }
+  wchar_t ch = GetCharInPiece(*it, 0);
+  it->set_start(it->start() + 1);
+  return ch;
+}
+
 wchar_t Document::EraseCharAt(int position) {
   TRACE(position);
   assert(0 <= position);
   assert(position < GetCharCount());
   if (position == 0) {
-    Piece& piece = pieces_.front();
-    if (piece.GetCharCount() == 1) {
-      wchar_t ch = GetCharInPiece(piece, 0);
-      pieces_.pop_front();
-      return ch;
-    }
-    wchar_t ch = GetCharInPiece(piece, 0);
-    piece.set_start(piece.start() + 1);
-    return ch;
+    return EraseCharInFrontOf(pieces_.begin());
   }
 
-  int offset = 0;
+  int pos = 0;
   for (auto it = pieces_.begin(); it != pieces_.end(); ++it) {
     int piece_size = it->GetCharCount();
-    if (position == offset + piece_size) {
-      ++it;
-      if (it->GetCharCount() == 1) {
-        wchar_t ch = GetCharInPiece(*it, 0);
-        pieces_.erase(it);
-        return ch;
-      }
-      wchar_t ch = GetCharInPiece(*it, 0);
-      it->set_start(it->start() + 1);
-      return ch;
+    if (position == pos + piece_size) {
+      return EraseCharInFrontOf(++it);
     }
-    if (position == offset + piece_size - 1) {
+    if (position == pos + piece_size - 1) {
       assert(it->GetCharCount() > 1);
       wchar_t ch = GetCharInPiece(*it, it->GetCharCount() - 1);
       it->set_end(it->end() - 1);
       return ch;
     }
-    if (position < offset + piece_size - 1) {
-      Piece rest = it->SplitAt(position - offset);
+    if (position < pos + piece_size - 1) {
+      Piece rest = it->SplitAt(position - pos);
       assert(rest.GetCharCount() > 1);
       wchar_t ch = GetCharInPiece(rest, 0);
       rest.set_start(rest.start() + 1);
       pieces_.insert(++it, rest);
       return ch;
     }
-    offset += piece_size;
+    pos += piece_size;
   }
+  UNREACHABLE;
+  return 0;
+}
+
+wchar_t Document::EraseCharAt(int line, int offset) {
+  TRACE(line, offset);
+  assert(0 <= line);
+  assert(0 <= offset);
+  if (line == 0 && offset == 0) {
+    return EraseCharInFrontOf(pieces_.begin());
+  }
+
+  int line_count = 0;
+  int offset_count = 0;
+  for (auto it = pieces_.begin(); it != pieces_.end(); ++it) {
+    offset_count += it->GetCharCount();
+    if (line_count == line) {
+      if (offset_count == offset) {
+        return EraseCharInFrontOf(++it);
+      }
+      if (offset_count - 1 == offset) {
+        assert(it->GetCharCount() > 1);
+        wchar_t ch = GetCharInPiece(*it, it->GetCharCount() - 1);
+        it->set_end(it->end() - 1);
+        return ch;
+      }
+      if (offset_count - 1 > offset) {
+        Piece rest = it->SplitAt(offset);
+        assert(rest.GetCharCount() > 1);
+        wchar_t ch = GetCharInPiece(rest, 0);
+        rest.set_start(rest.start() + 1);
+        pieces_.insert(++it, rest);
+        return ch;
+      }
+    }
+    if (it->IsLineBreak()) {
+#ifdef _DEBUG
+      if (line_count == line) {
+        assert(offset_count <= offset);
+      }
+#endif
+      ++line_count;
+    }
+  }
+  assert(line <= line_count);
+  assert(offset_count <= offset);
   UNREACHABLE;
   return 0;
 }

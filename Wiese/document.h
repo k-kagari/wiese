@@ -60,6 +60,9 @@ class Piece {
     assert(start_ <= value);
     end_ = value;
   }
+  bool operator==(const Piece& rhs) const {
+    return kind_ == rhs.kind_ && start_ == rhs.start_ && end_ == rhs.end_;
+  }
 
  private:
   Piece(Kind kind) : kind_(kind) {}
@@ -81,6 +84,7 @@ class Document {
   void InsertStringBefore(const wchar_t* string, int position);
   void InsertLineBreakBefore(int position);
   wchar_t EraseCharAt(int position);
+  wchar_t EraseCharAt(int line, int offset);
 
   std::wstring GetText() const;
   int GetCharCount() const;
@@ -92,9 +96,9 @@ class Document {
 
  private:
   Piece AddCharsToBuffer(const wchar_t* chars, int count);
-  void InsertCharsBefore(const wchar_t* chars, int count,
-                              int position);
+  void InsertCharsBefore(const wchar_t* chars, int count, int position);
   wchar_t GetCharInPiece(const Piece& piece, int index) const;
+  wchar_t EraseCharInFrontOf(PieceList::iterator it);
 
   PieceList pieces_;
   const std::vector<wchar_t> original_;

@@ -157,29 +157,33 @@ float EditWindow::MeasureStringWidth(std::wstring_view string) {
 void EditWindow::UpdateCaretPosition() {
   const float line_height = DesignUnitsToWindowCoordinates(
       font_metrics_.ascent + font_metrics_.descent + font_metrics_.lineGap);
-  if (selection_.Point() == 0) {
+  if (selection_.IsSinglePoint() && selection_.Point() == SelectionPoint(0, 0)) {
     scaled_api_.SetCaretPos(0, 0);
     return;
   }
 
   int pos = 0;
   int line_count = 0;
-
+  int offset = 0;
   std::optional<Piece> piece_before_caret;
   Document::PieceListIterator it;
   for (it = document_.PieceIteratorBegin(); it != document_.PieceIteratorEnd();
        ++it) {
-    int char_count = it->GetCharCount();
-    if (it->IsLineBreak()) ++line_count;
-    if (selection_.Point() == pos + char_count) {
-      piece_before_caret = *it;
-      break;
+    offset += it->GetCharCount();
+    if (it->IsLineBreak()) {
+      ++line_count;
+      offset = 0;
     }
-    if (selection_.Point() < pos + char_count) {
-      piece_before_caret = it->Slice(0, selection_.Point() - pos);
-      break;
+    if (line_count == selection_.Point().line) {
+      if (selection_.Point().offset == offset) {
+        piece_before_caret = *it;
+        break;
+      }
+      if (selection_.Point().offset < offset) {
+        piece_before_caret = it->Slice(0, offset - selection_.Point().offset);
+        break;
+      }
     }
-    pos += char_count;
   }
   assert(piece_before_caret.has_value());
 
@@ -235,9 +239,10 @@ void EditWindow::OnPaint() {
 }
 
 void EditWindow::OnKeyDown(char key) {
+  /*
   switch (key) {
     case VK_BACK: {
-      if (selection_.Point() == 0) return;
+      if (selection_.Point() == SelectionPoint(0, 0)) return;
       document_.EraseCharAt(selection_.MovePointBack());
       InvalidateRect(hwnd(), nullptr, FALSE);
       UpdateCaretPosition();
@@ -275,12 +280,13 @@ void EditWindow::OnKeyDown(char key) {
       return;
     }
   }
+  */
 }
 
 void EditWindow::OnChar(wchar_t ch) {
   if (ch == 0x08 || ch == 0x0d) return;
-  document_.InsertCharBefore(ch, selection_.Point());
-  selection_.MovePointForward();
+//  document_.InsertCharBefore(ch, selection_.Point());
+//  selection_.MovePointForward();
   InvalidateRect(hwnd(), nullptr, FALSE);
   UpdateCaretPosition();
 }
