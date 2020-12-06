@@ -17,8 +17,9 @@ namespace wiese {
 
 class EditWindow : public WindowBase {
  public:
-  EditWindow(HINSTANCE hinstance, ID2D1FactoryPtr d2d, IDWriteFactoryPtr dwrite,
-             HWND parent, int x, int y, int width, int height);
+  EditWindow(HINSTANCE hinstance, ITfThreadMgrPtr tf_thread_manager,
+             ID2D1FactoryPtr d2d, IDWriteFactoryPtr dwrite, HWND parent, int x,
+             int y, int width, int height);
   ~EditWindow();
 
   class Selection {
@@ -82,8 +83,7 @@ class EditWindow : public WindowBase {
   void OnKeyDown(char key);
   void OnChar(wchar_t ch);
 
-  LRESULT WindowProcedure(HWND hwnd, UINT msg, WPARAM wp,
-                                  LPARAM lp) override;
+  LRESULT WindowProcedure(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) override;
 
   static constexpr int kFontEmSize = 16;
 
@@ -96,8 +96,6 @@ class EditWindow : public WindowBase {
   DWRITE_FONT_METRICS font_metrics_;
   ID2D1SolidColorBrushPtr brush_;
 
-  ITfThreadMgrPtr tf_thread_manager_;
-  TfClientId tf_client_id_;
   ITfDocumentMgrPtr tf_document_manager_;
 
   Document document_;

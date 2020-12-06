@@ -22,12 +22,18 @@ void SaveExceptionForRethrow() noexcept {
 int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR /*lpCmdLine*/,
                     int nCmdShow) {
   HRESULT hr = CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
-  if (FAILED(hr))
-    return 1;
+  if (FAILED(hr)) return 1;
+
+  ITfThreadMgrPtr tf_thread_manager;
+  TfClientId tf_client_id;
+  hr = tf_thread_manager.CreateInstance(CLSID_TF_ThreadMgr, nullptr,
+                                        CLSCTX_INPROC_SERVER);
+  if (FAILED(hr)) return 1;
+  tf_thread_manager->Activate(&tf_client_id);
 
   ID2D1FactoryPtr d2d;
   hr = D2D1CreateFactory(D2D1_FACTORY_TYPE_SINGLE_THREADED, IID_ID2D1Factory,
-                        nullptr, reinterpret_cast<void**>(&d2d));
+                         nullptr, reinterpret_cast<void**>(&d2d));
   if (FAILED(hr)) return 1;
 
   IDWriteFactoryPtr dwrite;
@@ -35,18 +41,18 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR /*lpCmdLine*/,
                            reinterpret_cast<IUnknown**>(&dwrite));
   if (FAILED(hr)) return 1;
 
-  wiese::MainWindow window(hInstance, d2d, dwrite);
+  wiese::MainWindow window(hInstance, tf_thread_manager, d2d, dwrite);
   ShowWindow(window.hwnd(), nCmdShow);
   UpdateWindow(window.hwnd());
 
   MSG msg;
   while (BOOL ret = GetMessageW(&msg, nullptr, 0, 0)) {
-    if (saved_exception)
-      std::rethrow_exception(saved_exception);
+    if (saved_exception) std::rethrow_exception(saved_exception);
     if (ret == -1) break;
     TranslateMessage(&msg);
     DispatchMessageW(&msg);
   }
+  tf_thread_manager->Deactivate();
   return 0;
 }
 

@@ -17,9 +17,9 @@
 
 namespace wiese {
 
-EditWindow::EditWindow(HINSTANCE hinstance, ID2D1FactoryPtr d2d,
-                       IDWriteFactoryPtr dwrite, HWND parent, int x, int y,
-                       int width, int height)
+EditWindow::EditWindow(HINSTANCE hinstance, ITfThreadMgrPtr tf_thread_manager,
+                       ID2D1FactoryPtr d2d, IDWriteFactoryPtr dwrite,
+                       HWND parent, int x, int y, int width, int height)
     : WindowBase(hinstance, L"WieseEditWindowClass", 0, L"WieseEditWindow",
                  WS_CHILD | WS_VISIBLE, x, y, width, height, parent),
       d2d_(d2d),
@@ -27,11 +27,8 @@ EditWindow::EditWindow(HINSTANCE hinstance, ID2D1FactoryPtr d2d,
       document_(L"0123456789") {
   scaled_api_.SetDPI(GetDpiForWindow(hwnd()));
 
-  winrt::check_hresult(tf_thread_manager_.CreateInstance(
-      CLSID_TF_ThreadMgr, nullptr, CLSCTX_INPROC_SERVER));
   winrt::check_hresult(
-      tf_thread_manager_->CreateDocumentMgr(&tf_document_manager_));
-  tf_thread_manager_->Activate(&tf_client_id_);
+      tf_thread_manager->CreateDocumentMgr(&tf_document_manager_));
 
   IDWriteFontCollectionPtr font_collection;
   dwrite->GetSystemFontCollection(&font_collection);
@@ -56,7 +53,7 @@ EditWindow::EditWindow(HINSTANCE hinstance, ID2D1FactoryPtr d2d,
   font->GetMetrics(&font_metrics_);
 }
 
-EditWindow::~EditWindow() { tf_thread_manager_->Deactivate(); }
+EditWindow::~EditWindow() {}
 
 void EditWindow::CreateDeviceResources() {
   RECT rect;

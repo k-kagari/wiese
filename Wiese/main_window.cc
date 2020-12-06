@@ -9,15 +9,15 @@
 
 namespace wiese {
 
-MainWindow::MainWindow(HINSTANCE hinstance, ID2D1FactoryPtr d2d,
-                       IDWriteFactoryPtr dwrite)
+MainWindow::MainWindow(HINSTANCE hinstance, ITfThreadMgrPtr tf_thread_manager,
+                       ID2D1FactoryPtr d2d, IDWriteFactoryPtr dwrite)
     : WindowBase(hinstance, L"WieseMainWindowClass", WS_EX_APPWINDOW, L"Wiese",
                  WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
                  CW_USEDEFAULT, CW_USEDEFAULT, nullptr) {
   RECT rect;
   GetClientRect(hwnd(), &rect);
-  edit_.emplace(hinstance, d2d, dwrite, hwnd(), rect.left, rect.top,
-                rect.right - rect.left, rect.bottom - rect.top);
+  edit_.emplace(hinstance, tf_thread_manager, d2d, dwrite, hwnd(), rect.left,
+                rect.top, rect.right - rect.left, rect.bottom - rect.top);
 }
 
 void MainWindow::OnSize(int width, int height) {
@@ -26,8 +26,7 @@ void MainWindow::OnSize(int width, int height) {
 
 void MainWindow::OnSetFocus() { SetFocus(edit_->hwnd()); }
 
-LRESULT MainWindow::WindowProcedure(HWND hwnd, UINT msg, WPARAM wp,
-                                    LPARAM lp) {
+LRESULT MainWindow::WindowProcedure(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
   switch (msg) {
     case WM_DESTROY:
       PostQuitMessage(0);

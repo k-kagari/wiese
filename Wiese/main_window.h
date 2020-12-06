@@ -17,15 +17,14 @@ class EditWindow;
 
 class MainWindow : public WindowBase {
  public:
-  MainWindow(HINSTANCE hinstance, ID2D1FactoryPtr d2d,
-             IDWriteFactoryPtr dwrite);
+  MainWindow(HINSTANCE hinstance, ITfThreadMgrPtr tf_thread_manager,
+             ID2D1FactoryPtr d2d, IDWriteFactoryPtr dwrite);
 
  private:
   void OnSize(int width, int height);
   void OnSetFocus();
 
-  LRESULT WindowProcedure(HWND hwnd, UINT msg, WPARAM wp,
-                                  LPARAM lp) override;
+  LRESULT WindowProcedure(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) override;
 
   std::optional<EditWindow> edit_;
 };
