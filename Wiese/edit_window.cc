@@ -67,15 +67,21 @@ void EditWindow::CreateDeviceResources() {
   winrt::check_hresult(d2d_->CreateHwndRenderTarget(
       D2D1::RenderTargetProperties(),
       D2D1::HwndRenderTargetProperties(hwnd(), size), &render_target));
-  ID2D1SolidColorBrushPtr brush;
+  ID2D1SolidColorBrushPtr text_brush;
   winrt::check_hresult(render_target->CreateSolidColorBrush(
-      D2D1::ColorF(D2D1::ColorF::Black), &brush));
+      D2D1::ColorF(D2D1::ColorF::Black), &text_brush));
+  ID2D1SolidColorBrushPtr selection_background_brush;
+  winrt::check_hresult(render_target->CreateSolidColorBrush(
+      D2D1::ColorF(D2D1::ColorF::LightCyan), &selection_background_brush));
+
   render_target_ = std::move(render_target);
-  brush_ = std::move(brush);
+  text_brush_ = std::move(text_brush);
+  selection_background_brush_ = std::move(selection_background_brush);
 }
 
 void EditWindow::DiscardDeviceResources() {
-  brush_ = nullptr;
+  text_brush_ = nullptr;
+  selection_background_brush_ = nullptr;
   render_target_ = nullptr;
 }
 
@@ -103,23 +109,81 @@ bool IsKeyPressed(int key) { return GetKeyState(key) < 0; }
 
 void EditWindow::DrawLines() {
   const float line_height = CalculateLineHeight(font_metrics_, kFontEmSize);
+
+  SelectionPoint selection_start;
+  SelectionPoint selection_end;
+  if (selection_.caret_pos < selection_.anchor) {
+    selection_start = selection_.caret_pos;
+    selection_end = selection_.anchor;
+  } else {
+    selection_start = selection_.anchor;
+    selection_end = selection_.caret_pos;
+  }
+
+  int line = 0;
+  int column = 0;
   float x_offset = 0;
-  int line_number = 0;
+  bool in_selection = false;
   for (auto it = document_.PieceIteratorBegin();
        it != document_.PieceIteratorEnd(); ++it) {
     if (it->IsLineBreak()) {
-      ++line_number;
+      ++line;
+      column = 0;
       x_offset = 0.0f;
       continue;
     }
-    x_offset += DrawString(document_.GetCharsInPiece(*it), x_offset,
-                           line_height * line_number);
+
+    int char_count = it->GetCharCount();
+    if (selection_.HasRange()) {
+      if (!in_selection) {
+        if (line == selection_start.line && column <= selection_start.column &&
+            selection_start.column < column + char_count) {
+          in_selection = true;
+          int split_point = selection_start.column - column;
+          std::wstring_view string = document_.GetCharsInPiece(*it);
+          x_offset += DrawString(string.substr(0, split_point), x_offset, line_height * line,
+             nullptr);
+          x_offset += DrawString(string.substr(split_point), x_offset, line_height * line,
+            selection_background_brush_);
+          column += char_count;
+          continue;
+        }
+      } else {
+        if (line == selection_end.line && column <= selection_end.column &&
+            selection_end.column < column + char_count) {
+          in_selection = true;
+          int split_point = selection_start.column - column;
+          std::wstring_view string = document_.GetCharsInPiece(*it);
+          x_offset += DrawString(string.substr(0, split_point), x_offset,
+                                 line_height * line, selection_background_brush_);
+          x_offset +=
+              DrawString(string.substr(split_point), x_offset,
+                         line_height * line, nullptr);
+          column += char_count;
+          continue;
+        }
+      }
+    }
+    column += char_count;
+    x_offset +=
+        DrawString(document_.GetCharsInPiece(*it), x_offset, line_height * line,
+                   in_selection ? selection_background_brush_ : nullptr);
   }
 }
 
-float EditWindow::DrawString(std::wstring_view text, float x, float y) {
+float EditWindow::DrawString(std::wstring_view text, float x, float y,
+                             ID2D1BrushPtr background_brush) {
   std::unique_ptr<std::uint16_t[]> glyph_indices =
       StringToGlyphIndices(text, font_face_);
+  float width = MeasureGlyphIndicesWidth(glyph_indices.get(), text.size());
+
+  if (background_brush) {
+    float height =
+        static_cast<float>(font_metrics_.ascent + font_metrics_.descent) /
+        font_metrics_.designUnitsPerEm * kFontEmSize;
+    render_target_->FillRectangle(D2D1::RectF(x, y, x + width, y + height),
+                                  background_brush);
+  }
 
   DWRITE_GLYPH_RUN glyph_run;
   glyph_run.fontFace = font_face_;
@@ -132,9 +196,9 @@ float EditWindow::DrawString(std::wstring_view text, float x, float y) {
   glyph_run.bidiLevel = 0;
   float y_offset = y + static_cast<float>(font_metrics_.ascent) /
                            font_metrics_.designUnitsPerEm * kFontEmSize;
-  render_target_->DrawGlyphRun(D2D1::Point2F(x, y_offset), &glyph_run, brush_);
-
-  return MeasureGlyphIndicesWidth(glyph_indices.get(), text.size());
+  render_target_->DrawGlyphRun(D2D1::Point2F(x, y_offset), &glyph_run,
+                               text_brush_);
+  return width;
 }
 
 float EditWindow::MeasureGlyphIndicesWidth(const std::uint16_t* indices,
@@ -276,6 +340,7 @@ void EditWindow::OnKeyDown(char key) {
         UpdateCaretPosition();
       } else {
         MoveSelectionPointBack(selection_.anchor);
+        InvalidateRect(hwnd(), nullptr, FALSE);
       }
       return;
     }
