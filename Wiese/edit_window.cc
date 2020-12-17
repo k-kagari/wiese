@@ -9,6 +9,7 @@
 #include <memory>
 #include <numeric>
 #include <optional>
+#include <queue>
 #include <string_view>
 #include <vector>
 
@@ -105,6 +106,13 @@ std::unique_ptr<std::uint16_t[]> StringToGlyphIndices(
 
 bool IsKeyPressed(int key) { return GetKeyState(key) < 0; }
 
+struct DrawStringOperation {
+  std::wstring_view text;
+  bool selected;
+  DrawStringOperation(std::wstring_view text, bool selected)
+      : text(text), selected(selected) {}
+};
+
 }  // namespace
 
 void EditWindow::DrawLines() {
@@ -120,6 +128,7 @@ void EditWindow::DrawLines() {
     selection_end = selection_.caret_pos;
   }
 
+  std::queue<DrawStringOperation> queue;
   int line = 0;
   int column = 0;
   float x_offset = 0;
@@ -134,40 +143,47 @@ void EditWindow::DrawLines() {
     }
 
     int char_count = it->GetCharCount();
-    if (selection_.HasRange()) {
-      if (!in_selection) {
-        if (line == selection_start.line && column <= selection_start.column &&
-            selection_start.column < column + char_count) {
-          in_selection = true;
-          int split_point = selection_start.column - column;
-          std::wstring_view string = document_.GetCharsInPiece(*it);
-          x_offset += DrawString(string.substr(0, split_point), x_offset, line_height * line,
-             nullptr);
-          x_offset += DrawString(string.substr(split_point), x_offset, line_height * line,
-            selection_background_brush_);
-          column += char_count;
-          continue;
-        }
+    if (line == selection_start.line && column <= selection_start.column &&
+        selection_start.column < column + char_count) {
+      int start_point = selection_start.column - column;
+      std::wstring_view string = document_.GetCharsInPiece(*it);
+      queue.push({string.substr(0, start_point), false});
+      if (column <= selection_end.column &&
+          selection_end.column < column + char_count) {
+        // I“_‚ª“¯ˆêPiece‚É‚ ‚Á‚½ê‡
+        int end_point = selection_end.column - column;
+        queue.push({string.substr(start_point, end_point - start_point), true});
+        queue.push({string.substr(end_point), false});
       } else {
-        if (line == selection_end.line && column <= selection_end.column &&
-            selection_end.column < column + char_count) {
-          in_selection = true;
-          int split_point = selection_start.column - column;
-          std::wstring_view string = document_.GetCharsInPiece(*it);
-          x_offset += DrawString(string.substr(0, split_point), x_offset,
-                                 line_height * line, selection_background_brush_);
-          x_offset +=
-              DrawString(string.substr(split_point), x_offset,
-                         line_height * line, nullptr);
-          column += char_count;
-          continue;
-        }
+        in_selection = true;
+        queue.push({
+          string.substr(start_point), true});
+      }
+    } else if (in_selection) {
+      if (line == selection_end.line && column <= selection_end.column &&
+          selection_end.column < column + char_count) {
+        int end_point = selection_end.column - column;
+        std::wstring_view string = document_.GetCharsInPiece(*it);
+        queue.push({string.substr(0, end_point), true});
+        queue.push({string.substr(end_point), false});
+        in_selection = false;
       }
     }
+
+    if (queue.empty()) {
+      queue.push({document_.GetCharsInPiece(*it), in_selection});
+    }
+
+    while (!queue.empty()) {
+      DrawStringOperation& op = queue.front();
+      if (!op.text.empty()) {
+        x_offset +=
+            DrawString(op.text, x_offset, line_height * line,
+                       op.selected ? selection_background_brush_ : nullptr);
+      }
+      queue.pop();
+    }
     column += char_count;
-    x_offset +=
-        DrawString(document_.GetCharsInPiece(*it), x_offset, line_height * line,
-                   in_selection ? selection_background_brush_ : nullptr);
   }
 }
 

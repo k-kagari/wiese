@@ -26,7 +26,7 @@ void Dump(T t, Args... args) {
 
 }  // namespace
 
-#if 1
+#if 0
 #define TRACE(...) Dump(__FUNCSIG__, __VA_ARGS__)
 #else
 #define TRACE(...)
