@@ -139,9 +139,59 @@ void Document::InsertCharsBefore(const wchar_t* chars, int count,
   UNREACHABLE;
 }
 
+void Document::InsertCharsBefore(const wchar_t* chars, int count,
+                                 int line, int column) {
+  assert(line >= 0);
+  assert(column >= 0);
+  assert(line < GetLineCount());
+  if (line == 0 && column == 0) {
+    pieces_.push_front(AddCharsToBuffer(chars, count));
+    return;
+  }
+
+  auto it = pieces_.begin();
+  auto end = pieces_.end();
+  AdvanceByLine(it, line, end);
+  if (column == 0) {
+    pieces_.insert(it, AddCharsToBuffer(chars, count));
+  }
+
+  int offset = 0;
+  for (; it != end; ++it) {
+    int piece_size = it->GetCharCount();
+    if (offset + piece_size == column) {
+      // Specified position is in between of two pieces.
+      // Now consider whether we can just elongate the previous piece.
+      if (it->IsPlain() && it->end() == static_cast<int>(added_.size())) {
+        std::copy(chars, chars + count, std::back_inserter(added_));
+        it->set_end(it->end() + count);
+        return;
+      }
+      // Insert a new piece at current position.
+      pieces_.insert(++it, AddCharsToBuffer(chars, count));
+      return;
+    }
+    if (column < offset + piece_size) {
+      // Specified position is in the middle of a piece.
+      // Split it and insert a new piece.
+      Piece rest = it->SplitAt(column - offset);
+      pieces_.insert(++it, AddCharsToBuffer(chars, count));
+      pieces_.insert(it, rest);
+      return;
+    }
+    offset += piece_size;
+  }
+  UNREACHABLE;
+}
+
 void Document::InsertCharBefore(wchar_t ch, int position) {
   TRACE(ch, position);
   InsertCharsBefore(&ch, 1, position);
+}
+
+void Document::InsertCharBefore(wchar_t ch, int line, int column) {
+  TRACE(ch, position);
+  InsertCharsBefore(&ch, 1, line, column);
 }
 
 void Document::InsertStringBefore(const wchar_t* string, int position) {
@@ -150,7 +200,8 @@ void Document::InsertStringBefore(const wchar_t* string, int position) {
 }
 
 void Document::InsertLineBreakBefore(int position) {
-  assert(0 <= position);
+  TRACE(position);
+  assert(position >= 0);
   assert(position <= GetCharCount());
   if (position == 0) {
     pieces_.push_front(Piece::MakeLineBreak());
@@ -165,6 +216,38 @@ void Document::InsertLineBreakBefore(int position) {
     }
     if (position < offset + piece_size) {
       Piece rest = it->SplitAt(position - offset);
+      pieces_.insert(++it, Piece::MakeLineBreak());
+      pieces_.insert(it, rest);
+      return;
+    }
+    offset += piece_size;
+  }
+  UNREACHABLE;
+}
+
+void Document::InsertLineBreakBefore(int line, int column) {
+  TRACE(line, column);
+  assert(line >= 0);
+  assert(column >= 0);
+  assert(line < GetLineCount());
+  if (line == 0 && column == 0) {
+    pieces_.push_front(Piece::MakeLineBreak());
+    return;
+  }
+
+  auto it = pieces_.begin();
+  auto end = pieces_.end();
+  AdvanceByLine(it, line, end);
+
+  int offset = 0;
+  for (; it != end; ++it) {
+    int piece_size = it->GetCharCount();
+    if (offset + piece_size == column) {
+      pieces_.insert(++it, Piece::MakeLineBreak());
+      return;
+    }
+    if (column < offset + piece_size) {
+      Piece rest = it->SplitAt(column - offset);
       pieces_.insert(++it, Piece::MakeLineBreak());
       pieces_.insert(it, rest);
       return;
@@ -219,48 +302,40 @@ wchar_t Document::EraseCharAt(int position) {
   return 0;
 }
 
-wchar_t Document::EraseCharAt(int line, int offset) {
-  TRACE(line, offset);
+wchar_t Document::EraseCharAt(int line, int column) {
+  TRACE(line, column);
   assert(0 <= line);
-  assert(0 <= offset);
-  if (line == 0 && offset == 0) {
+  assert(0 <= column);
+  if (line == 0 && column == 0) {
     return EraseCharInFrontOf(pieces_.begin());
   }
 
-  int line_count = 0;
-  int offset_count = 0;
-  for (auto it = pieces_.begin(); it != pieces_.end(); ++it) {
-    offset_count += it->GetCharCount();
-    if (line_count == line) {
-      if (offset_count == offset) {
-        return EraseCharInFrontOf(++it);
-      }
-      if (offset_count - 1 == offset) {
-        assert(it->GetCharCount() > 1);
-        wchar_t ch = GetCharInPiece(*it, it->GetCharCount() - 1);
-        it->set_end(it->end() - 1);
-        return ch;
-      }
-      if (offset_count - 1 > offset) {
-        Piece rest = it->SplitAt(offset);
-        assert(rest.GetCharCount() > 1);
-        wchar_t ch = GetCharInPiece(rest, 0);
-        rest.set_start(rest.start() + 1);
-        pieces_.insert(++it, rest);
-        return ch;
-      }
+  auto it = pieces_.begin();
+  AdvanceByLine(it, line, pieces_.end());
+  if (column == 0) {
+    return EraseCharInFrontOf(it);
+  }
+  int offset = 0;
+  for (; it != pieces_.end(); ++it) {
+    offset += it->GetCharCount();
+    if (offset == column) {
+      return EraseCharInFrontOf(++it);
     }
-    if (it->IsLineBreak()) {
-#ifdef _DEBUG
-      if (line_count == line) {
-        assert(offset_count <= offset);
-      }
-#endif
-      ++line_count;
+    if (offset - 1 == column) {
+      assert(it->GetCharCount() > 1);
+      wchar_t ch = GetCharInPiece(*it, it->GetCharCount() - 1);
+      it->set_end(it->end() - 1);
+      return ch;
+    }
+    if (offset - 1 > column) {
+      Piece rest = it->SplitAt(column);
+      assert(rest.GetCharCount() > 1);
+      wchar_t ch = GetCharInPiece(rest, 0);
+      rest.set_start(rest.start() + 1);
+      pieces_.insert(++it, rest);
+      return ch;
     }
   }
-  assert(line <= line_count);
-  assert(offset_count <= offset);
   UNREACHABLE;
   return 0;
 }
@@ -281,6 +356,14 @@ int Document::GetCharCount() const {
   return static_cast<int>(count);
 }
 
+int Document::GetLineCount() const {
+  int count = 1;
+  for (const auto& piece : pieces_) {
+    if (piece.IsLineBreak()) ++count;
+  }
+  return count;
+}
+
 wchar_t Document::GetCharAt(int position) const {
   assert(position >= 0);
   assert(position < GetCharCount());
@@ -293,6 +376,22 @@ wchar_t Document::GetCharAt(int position) const {
   }
   UNREACHABLE;
   return L'\0';
+}
+
+void AdvanceByLine(Document::PieceList::const_iterator& it, int count,
+                   Document::PieceList::const_iterator end) {
+  for (int i = 0; i < count && it != end; ++it) {
+    if (it->IsLineBreak()) ++i;
+  }
+}
+
+int GetCharCountOfLine(Document::PieceList::const_iterator it,
+                        Document::PieceList::const_iterator end) {
+  int count = 0;
+  for (; it != end && !it->IsLineBreak(); ++it) {
+    count += it->GetCharCount();
+  }
+  return count;
 }
 
 }  // namespace wiese

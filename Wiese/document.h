@@ -2,6 +2,7 @@
 #define WIESE_DOCUMENT_H_
 
 #include <cassert>
+#include <iterator>
 #include <list>
 #include <string_view>
 #include <vector>
@@ -71,35 +72,37 @@ class Piece {
   int end_;
 };
 
-class LineIterator;
-
 class Document {
  public:
   using PieceList = std::list<Piece>;
-  using PieceListIterator = PieceList::const_iterator;
 
   Document(const wchar_t* original_text);
   Document(const Document&) = delete;
   Document& operator=(const Document&) = delete;
 
   void InsertCharBefore(wchar_t ch, int position);
+  void InsertCharBefore(wchar_t ch, int line, int column);
   void InsertStringBefore(const wchar_t* string, int position);
   void InsertLineBreakBefore(int position);
+  void InsertLineBreakBefore(int line, int column);
   wchar_t EraseCharAt(int position);
-  wchar_t EraseCharAt(int line, int offset);
+  wchar_t EraseCharAt(int line, int column);
 
   std::wstring GetText() const;
   int GetCharCount() const;
+  int GetLineCount() const;
   wchar_t GetCharAt(int position) const;
 
   std::wstring_view GetCharsInPiece(const Piece& piece) const;
-  PieceListIterator PieceIteratorBegin() const { return pieces_.begin(); }
-  PieceListIterator PieceIteratorEnd() const { return pieces_.end(); }
-  LineIterator LineBegin() const;
+  PieceList::const_iterator PieceIteratorBegin() const {
+    return pieces_.begin();
+  }
+  PieceList::const_iterator PieceIteratorEnd() const { return pieces_.end(); }
 
  private:
   Piece AddCharsToBuffer(const wchar_t* chars, int count);
   void InsertCharsBefore(const wchar_t* chars, int count, int position);
+  void InsertCharsBefore(const wchar_t* chars, int count, int line, int column);
   wchar_t GetCharInPiece(const Piece& piece, int index) const;
   wchar_t EraseCharInFrontOf(PieceList::iterator it);
 
@@ -108,27 +111,10 @@ class Document {
   std::vector<wchar_t> added_;
 };
 
-class LineIterator {
- public:
-  LineIterator(Document::PieceListIterator it, Document::PieceListIterator end) : it_(it), end_(end) {}
-  Document::PieceListIterator operator*() { return it_; }
-  LineIterator& operator++() {
-    assert(it_ != end_);
-    do {
-      ++it_;
-      if (it_ == end_) return *this;
-    } while (!it_->IsLineBreak());
-    ++it_;
-    return *this;
-  }
- private:
-  Document::PieceListIterator it_;
-  Document::PieceListIterator end_;
-};
-
-inline LineIterator Document::LineBegin() const {
-  return LineIterator(pieces_.begin(), pieces_.end());
-}
+void AdvanceByLine(Document::PieceList::const_iterator& it, int count,
+                   Document::PieceList::const_iterator end);
+int GetCharCountOfLine(Document::PieceList::const_iterator it,
+  Document::PieceList::const_iterator end);
 
 }  // namespace wiese
 

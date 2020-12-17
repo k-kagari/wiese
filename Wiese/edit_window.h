@@ -17,12 +17,12 @@ namespace wiese {
 
 struct SelectionPoint {
   int line;
-  int offset;
+  int column;
 
-  SelectionPoint() : line(0), offset(0) {}
-  SelectionPoint(int line, int offset) : line(line), offset(offset) {}
+  SelectionPoint() : line(0), column(0) {}
+  SelectionPoint(int line, int column) : line(line), column(column) {}
   bool operator==(const SelectionPoint& rhs) const {
-    return line == rhs.line && offset == rhs.offset;
+    return line == rhs.line && column == rhs.column;
   }
   bool operator!=(const SelectionPoint& rhs) const { return !operator==(rhs); }
 };
@@ -37,6 +37,19 @@ class Selection2 {
   SelectionPoint Point() {
     assert(IsSinglePoint());
     return start_;
+  }
+  void SetPoint(int line, int column) {
+    assert(IsSinglePoint());
+    start_.line = end_.line = line;
+    start_.column = end_.column = column;
+  }
+  void SetPointLine(int line) {
+    assert(IsSinglePoint());
+    start_.line = end_.line = line;
+  }
+  void SetPointColumn(int column) {
+    assert(IsSinglePoint());
+    start_.column = end_.column = column;
   }
 
  private:
@@ -104,6 +117,8 @@ class EditWindow : public WindowBase {
   float MeasureStringWidth(std::wstring_view string);
   void UpdateCaretPosition();
   float DesignUnitsToWindowCoordinates(UINT32 design_unit);
+
+  void MoveCaretBack();
 
   void OnSetFocus();
   void OnKillFocus();

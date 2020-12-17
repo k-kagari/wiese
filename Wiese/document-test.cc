@@ -44,6 +44,11 @@ TEST(Document, GetCharCount) {
   EXPECT_EQ(static_cast<int>(doc.GetText().size()), doc.GetCharCount());
 }
 
+TEST(Document, GetLineCount) {
+  wiese::Document doc(kMultiLineText);
+  EXPECT_EQ(2, doc.GetLineCount());
+}
+
 TEST(Document, GetCharAt_Beginning) {
   wiese::Document doc(kText);
   EXPECT_EQ(L'0', doc.GetCharAt(0));
@@ -70,6 +75,30 @@ TEST(Document, InsertCharBefore_End) {
   wiese::Document doc(kText);
   doc.InsertCharBefore(L'e', 10);
   EXPECT_EQ(L'e', doc.GetCharAt(10));
+}
+
+TEST(Document, InsertCharBefore_ByLineAndColumn1) {
+  wiese::Document doc(kMultiLineText);
+  doc.InsertCharBefore(L's', 0, 0);
+  EXPECT_EQ(L's', doc.GetCharAt(0));
+}
+
+TEST(Document, InsertCharBefore_ByLineAndColumn2) {
+  wiese::Document doc(kMultiLineText);
+  doc.InsertCharBefore(L'm', 0, 5);
+  EXPECT_EQ(L'm', doc.GetCharAt(5));
+}
+
+TEST(Document, InsertCharBefore_ByLineAndColumn3) {
+  wiese::Document doc(kMultiLineText);
+  doc.InsertCharBefore(L'm', 1, 0);
+  EXPECT_EQ(L'm', doc.GetCharAt(6));
+}
+
+TEST(Document, InsertCharBefore_ByLineAndColumn4) {
+  wiese::Document doc(kMultiLineText);
+  doc.InsertCharBefore(L'e', 1, 5);
+  EXPECT_EQ(L'e', doc.GetCharAt(11));
 }
 
 TEST(Document, InsertStringBefore_Beginning) {
@@ -106,6 +135,30 @@ TEST(Document, InsertLineBreakBefore_End) {
   wiese::Document doc(kText);
   doc.InsertLineBreakBefore(10);
   EXPECT_EQ(L"0123456789\n", doc.GetText());
+}
+
+TEST(Document, InsertLineBreakBefore_ByLineAndOffset1) {
+  wiese::Document doc(kMultiLineText);
+  doc.InsertLineBreakBefore(0, 0);
+  EXPECT_EQ(L"\n01234\n6789a", doc.GetText());
+}
+
+TEST(Document, InsertLineBreakBefore_ByLineAndOffset2) {
+  wiese::Document doc(kMultiLineText);
+  doc.InsertLineBreakBefore(0, 5);
+  EXPECT_EQ(L"01234\n\n6789a", doc.GetText());
+}
+
+TEST(Document, InsertLineBreakBefore_ByLineAndOffset3) {
+  wiese::Document doc(kMultiLineText);
+  doc.InsertLineBreakBefore(1, 0);
+  EXPECT_EQ(L"01234\n\n6789a", doc.GetText());
+}
+
+TEST(Document, InsertLineBreakBefore_ByLineAndOffset4) {
+  wiese::Document doc(kMultiLineText);
+  doc.InsertLineBreakBefore(1, 5);
+  EXPECT_EQ(L"01234\n6789a\n", doc.GetText());
 }
 
 TEST(Document, EraseCharAt_Beginning) {
@@ -164,6 +217,15 @@ TEST(Document, RegressionCase3) {
   doc.InsertCharBefore(L'b', 2);
   doc.EraseCharAt(2);
   EXPECT_EQ(L"0a123456789", doc.GetText());
+}
+
+TEST(Document, RegressionCase4) {
+  wiese::Document doc(kText);
+  doc.InsertLineBreakBefore(0, 5);
+  doc.EraseCharAt(1, 2);
+  doc.EraseCharAt(1, 1);
+  doc.EraseCharAt(1, 0);
+  EXPECT_EQ(L"01234\n89", doc.GetText());
 }
 
 TEST(Piece, MakeOriginal_returns_Piece_that_is_a_Original) {
@@ -226,11 +288,17 @@ TEST(Piece, Slice_returns_subset_of_itself) {
   EXPECT_EQ(4, sub_piece.end());
 }
 
-TEST(LineIterator, Test1) {
+TEST(AdvanceByLine, Test1) {
   wiese::Document doc(kMultiLineText);
-  wiese::LineIterator line_it = doc.LineBegin();
-  auto piece_it = doc.PieceIteratorBegin();
-  EXPECT_EQ(*piece_it, *(*line_it));
-  std::advance(piece_it, 2);
-  EXPECT_EQ(*piece_it, *(*++line_it));
+  auto it1 = doc.PieceIteratorBegin();
+  auto it2 = doc.PieceIteratorBegin();
+  EXPECT_EQ(*it1, *it2);
+  std::advance(it1, 2);
+  AdvanceByLine(it2, 1, doc.PieceIteratorEnd());
+  EXPECT_EQ(*it1, *it2);
+}
+
+TEST(GetCharCountOfLine, Test1) {
+  wiese::Document doc(kText);
+  EXPECT_EQ(10, GetCharCountOfLine(doc.PieceIteratorBegin(), doc.PieceIteratorEnd()));
 }
