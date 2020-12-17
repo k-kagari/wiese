@@ -27,34 +27,19 @@ struct SelectionPoint {
   bool operator!=(const SelectionPoint& rhs) const { return !operator==(rhs); }
 };
 
-class Selection2 {
-  public:
-  Selection2() : start_(), end_() {}
-  Selection2(const SelectionPoint& start, const SelectionPoint& end)
-      : start_(start), end_(end) {}
-  bool IsSinglePoint() const { return start_ == end_; }
-  bool IsRange() const { return start_ != end_; }
-  SelectionPoint Point() {
-    assert(IsSinglePoint());
-    return start_;
-  }
-  void SetPoint(int line, int column) {
-    assert(IsSinglePoint());
-    start_.line = end_.line = line;
-    start_.column = end_.column = column;
-  }
-  void SetPointLine(int line) {
-    assert(IsSinglePoint());
-    start_.line = end_.line = line;
-  }
-  void SetPointColumn(int column) {
-    assert(IsSinglePoint());
-    start_.column = end_.column = column;
-  }
+struct Selection {
+ public:
+  SelectionPoint caret_pos;
+  SelectionPoint anchor;
 
- private:
-  SelectionPoint start_;
-  SelectionPoint end_;
+  Selection() : caret_pos(), anchor() {}
+  Selection(const SelectionPoint& caret_pos, const SelectionPoint& anchor)
+      : caret_pos(caret_pos), anchor(anchor) {}
+  void SetCaretAndAnchorLine(int line) { caret_pos.line = anchor.line = line; }
+  void SetCaretAndAnchorColumn(int column) {
+    caret_pos.column = anchor.column = column;
+  }
+  bool HasRange() const { return caret_pos != anchor; }
 };
 
 class EditWindow : public WindowBase {
@@ -62,51 +47,6 @@ class EditWindow : public WindowBase {
   EditWindow(HINSTANCE hinstance, ID2D1FactoryPtr d2d, IDWriteFactoryPtr dwrite,
              HWND parent, int x, int y, int width, int height);
   ~EditWindow();
-
-  class Selection {
-   public:
-    Selection() : start_(0), end_(0) {}
-    Selection(int start, int end) : start_(start), end_(end) {
-      assert(start <= end);
-    }
-    int MovePointForward() {
-      assert(IsSinglePoint());
-      return start_ = ++end_;
-    }
-    int MovePointBack() {
-      assert(IsSinglePoint());
-      assert(end_ - 1 >= 0);
-      return start_ = --end_;
-    }
-    int MoveStartPosBack() {
-      assert(start_);
-      return --start_;
-    }
-    int MoveStartPosForward() {
-      ++start_;
-      assert(start_ <= end_);
-      return start_;
-    }
-    int MoveEndPosBack() {
-      --end_;
-      assert(start_ <= end_);
-      return end_;
-    }
-    int MoveEndPosForward() {
-      ++end_;
-      return end_;
-    }
-    int Point() const {
-      assert(IsSinglePoint());
-      return start_;
-    }
-    bool IsSinglePoint() const { return start_ == end_; }
-    bool IsRange() const { return start_ != end_; }
-
-   private:
-    int start_;
-    int end_;
-  };
 
  private:
   void CreateDeviceResources();
@@ -118,7 +58,8 @@ class EditWindow : public WindowBase {
   void UpdateCaretPosition();
   float DesignUnitsToWindowCoordinates(UINT32 design_unit);
 
-  void MoveCaretBack();
+  void MoveSelectionPointBack(SelectionPoint& point);
+  void DeleteSelectedText();
 
   void OnSetFocus();
   void OnKillFocus();
@@ -144,7 +85,7 @@ class EditWindow : public WindowBase {
   ITfDocumentMgrPtr tf_document_manager_;
 
   Document document_;
-  Selection2 selection_;
+  Selection selection_;
 };
 
 }  // namespace wiese

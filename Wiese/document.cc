@@ -26,7 +26,7 @@ void Dump(T t, Args... args) {
 
 }  // namespace
 
-#if 0
+#if 1
 #define TRACE(...) Dump(__FUNCSIG__, __VA_ARGS__)
 #else
 #define TRACE(...)
@@ -152,9 +152,6 @@ void Document::InsertCharsBefore(const wchar_t* chars, int count,
   auto it = pieces_.begin();
   auto end = pieces_.end();
   AdvanceByLine(it, line, end);
-  if (column == 0) {
-    pieces_.insert(it, AddCharsToBuffer(chars, count));
-  }
 
   int offset = 0;
   for (; it != end; ++it) {
@@ -190,7 +187,7 @@ void Document::InsertCharBefore(wchar_t ch, int position) {
 }
 
 void Document::InsertCharBefore(wchar_t ch, int line, int column) {
-  TRACE(ch, position);
+  TRACE(ch, line, column);
   InsertCharsBefore(&ch, 1, line, column);
 }
 

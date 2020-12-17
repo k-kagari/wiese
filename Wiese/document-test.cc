@@ -228,6 +228,13 @@ TEST(Document, RegressionCase4) {
   EXPECT_EQ(L"01234\n89", doc.GetText());
 }
 
+TEST(Document, RegressionCase5) {
+  wiese::Document doc(kText);
+  doc.InsertLineBreakBefore(0, 5);
+  doc.InsertCharBefore(L'a', 1, 0);
+  EXPECT_EQ(L"01234\na56789", doc.GetText());
+}
+
 TEST(Piece, MakeOriginal_returns_Piece_that_is_a_Original) {
   EXPECT_TRUE(wiese::Piece::MakeOriginal(1, 2).IsOriginal());
 }
