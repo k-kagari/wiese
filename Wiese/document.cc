@@ -56,7 +56,7 @@ Piece Piece::MakeLineBreak() { return Piece(Kind::kLineBreak); }
 Document::Document(const wchar_t* original_text)
     : original_(original_text, original_text + std::wcslen(original_text)) {
   int start = 0;
-  for (int i = 0; i < original_.size(); ++i) {
+  for (int i = 0; i < static_cast<int>(original_.size()); ++i) {
     if (original_[i] == L'\n') {
       pieces_.push_back(Piece::MakeOriginal(start, i));
       pieces_.push_back(Piece::MakeLineBreak());

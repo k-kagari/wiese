@@ -162,7 +162,7 @@ void EditWindow::UpdateCaretPosition() {
     return;
   }
 
-  int pos = 0;
+  //int pos = 0;
   int line_count = 0;
   int offset = 0;
   std::optional<Piece> piece_before_caret;
@@ -239,6 +239,7 @@ void EditWindow::OnPaint() {
 }
 
 void EditWindow::OnKeyDown(char key) {
+  key;
   /*
   switch (key) {
     case VK_BACK: {

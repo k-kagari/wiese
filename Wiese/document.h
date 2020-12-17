@@ -71,6 +71,8 @@ class Piece {
   int end_;
 };
 
+class LineIterator;
+
 class Document {
  public:
   using PieceList = std::list<Piece>;
@@ -93,6 +95,7 @@ class Document {
   std::wstring_view GetCharsInPiece(const Piece& piece) const;
   PieceListIterator PieceIteratorBegin() const { return pieces_.begin(); }
   PieceListIterator PieceIteratorEnd() const { return pieces_.end(); }
+  LineIterator LineBegin() const;
 
  private:
   Piece AddCharsToBuffer(const wchar_t* chars, int count);
@@ -104,6 +107,28 @@ class Document {
   const std::vector<wchar_t> original_;
   std::vector<wchar_t> added_;
 };
+
+class LineIterator {
+ public:
+  LineIterator(Document::PieceListIterator it, Document::PieceListIterator end) : it_(it), end_(end) {}
+  Document::PieceListIterator operator*() { return it_; }
+  LineIterator& operator++() {
+    assert(it_ != end_);
+    do {
+      ++it_;
+      if (it_ == end_) return *this;
+    } while (!it_->IsLineBreak());
+    ++it_;
+    return *this;
+  }
+ private:
+  Document::PieceListIterator it_;
+  Document::PieceListIterator end_;
+};
+
+inline LineIterator Document::LineBegin() const {
+  return LineIterator(pieces_.begin(), pieces_.end());
+}
 
 }  // namespace wiese
 

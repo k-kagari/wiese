@@ -3,6 +3,7 @@
 #include <gtest/gtest.h>
 
 #include <cstring>
+#include <iterator>
 #include <ostream>
 
 constexpr const wchar_t* kText = L"0123456789";
@@ -223,4 +224,13 @@ TEST(Piece, Slice_returns_subset_of_itself) {
   wiese::Piece sub_piece = piece.Slice(1, 3);
   EXPECT_EQ(2, sub_piece.start());
   EXPECT_EQ(4, sub_piece.end());
+}
+
+TEST(LineIterator, Test1) {
+  wiese::Document doc(kMultiLineText);
+  wiese::LineIterator line_it = doc.LineBegin();
+  auto piece_it = doc.PieceIteratorBegin();
+  EXPECT_EQ(*piece_it, *(*line_it));
+  std::advance(piece_it, 2);
+  EXPECT_EQ(*piece_it, *(*++line_it));
 }
