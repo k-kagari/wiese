@@ -15,6 +15,48 @@
 
 namespace wiese {
 
+struct SelectionPoint {
+  int line;
+  int column;
+
+  SelectionPoint() : line(0), column(0) {}
+  SelectionPoint(int line, int column) : line(line), column(column) {}
+  bool operator==(const SelectionPoint& rhs) const {
+    return line == rhs.line && column == rhs.column;
+  }
+  bool operator!=(const SelectionPoint& rhs) const { return !operator==(rhs); }
+};
+
+class Selection2 {
+  public:
+  Selection2() : start_(), end_() {}
+  Selection2(const SelectionPoint& start, const SelectionPoint& end)
+      : start_(start), end_(end) {}
+  bool IsSinglePoint() const { return start_ == end_; }
+  bool IsRange() const { return start_ != end_; }
+  SelectionPoint Point() {
+    assert(IsSinglePoint());
+    return start_;
+  }
+  void SetPoint(int line, int column) {
+    assert(IsSinglePoint());
+    start_.line = end_.line = line;
+    start_.column = end_.column = column;
+  }
+  void SetPointLine(int line) {
+    assert(IsSinglePoint());
+    start_.line = end_.line = line;
+  }
+  void SetPointColumn(int column) {
+    assert(IsSinglePoint());
+    start_.column = end_.column = column;
+  }
+
+ private:
+  SelectionPoint start_;
+  SelectionPoint end_;
+};
+
 class EditWindow : public WindowBase {
  public:
   EditWindow(HINSTANCE hinstance, ITfThreadMgrPtr tf_thread_manager,
@@ -77,6 +119,8 @@ class EditWindow : public WindowBase {
   void UpdateCaretPosition();
   float DesignUnitsToWindowCoordinates(UINT32 design_unit);
 
+  void MoveCaretBack();
+
   void OnSetFocus();
   void OnKillFocus();
   void OnPaint();
@@ -99,7 +143,7 @@ class EditWindow : public WindowBase {
   ITfDocumentMgrPtr tf_document_manager_;
 
   Document document_;
-  Selection selection_;
+  Selection2 selection_;
 };
 
 }  // namespace wiese

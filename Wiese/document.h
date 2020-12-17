@@ -2,6 +2,7 @@
 #define WIESE_DOCUMENT_H_
 
 #include <cassert>
+#include <iterator>
 #include <list>
 #include <string_view>
 #include <vector>
@@ -60,6 +61,9 @@ class Piece {
     assert(start_ <= value);
     end_ = value;
   }
+  bool operator==(const Piece& rhs) const {
+    return kind_ == rhs.kind_ && start_ == rhs.start_ && end_ == rhs.end_;
+  }
 
  private:
   Piece(Kind kind) : kind_(kind) {}
@@ -71,35 +75,46 @@ class Piece {
 class Document {
  public:
   using PieceList = std::list<Piece>;
-  using PieceListIterator = PieceList::const_iterator;
 
   Document(const wchar_t* original_text);
   Document(const Document&) = delete;
   Document& operator=(const Document&) = delete;
 
   void InsertCharBefore(wchar_t ch, int position);
+  void InsertCharBefore(wchar_t ch, int line, int column);
   void InsertStringBefore(const wchar_t* string, int position);
   void InsertLineBreakBefore(int position);
+  void InsertLineBreakBefore(int line, int column);
   wchar_t EraseCharAt(int position);
+  wchar_t EraseCharAt(int line, int column);
 
   std::wstring GetText() const;
   int GetCharCount() const;
+  int GetLineCount() const;
   wchar_t GetCharAt(int position) const;
 
   std::wstring_view GetCharsInPiece(const Piece& piece) const;
-  PieceListIterator PieceIteratorBegin() const { return pieces_.begin(); }
-  PieceListIterator PieceIteratorEnd() const { return pieces_.end(); }
+  PieceList::const_iterator PieceIteratorBegin() const {
+    return pieces_.begin();
+  }
+  PieceList::const_iterator PieceIteratorEnd() const { return pieces_.end(); }
 
  private:
   Piece AddCharsToBuffer(const wchar_t* chars, int count);
-  void InsertCharsBefore(const wchar_t* chars, int count,
-                              int position);
+  void InsertCharsBefore(const wchar_t* chars, int count, int position);
+  void InsertCharsBefore(const wchar_t* chars, int count, int line, int column);
   wchar_t GetCharInPiece(const Piece& piece, int index) const;
+  wchar_t EraseCharInFrontOf(PieceList::iterator it);
 
   PieceList pieces_;
   const std::vector<wchar_t> original_;
   std::vector<wchar_t> added_;
 };
+
+void AdvanceByLine(Document::PieceList::const_iterator& it, int count,
+                   Document::PieceList::const_iterator end);
+int GetCharCountOfLine(Document::PieceList::const_iterator it,
+  Document::PieceList::const_iterator end);
 
 }  // namespace wiese
 
