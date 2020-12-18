@@ -94,6 +94,7 @@ class Document {
   wchar_t GetCharAt(int position) const;
 
   std::wstring_view GetCharsInPiece(const Piece& piece) const;
+  std::wstring_view GetVisualCharsInPiece(const Piece& piece) const;
   PieceList::const_iterator PieceIteratorBegin() const {
     return pieces_.begin();
   }

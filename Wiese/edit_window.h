@@ -67,6 +67,7 @@ class EditWindow : public WindowBase {
   float DesignUnitsToWindowCoordinates(UINT32 design_unit);
 
   void MoveSelectionPointBack(SelectionPoint& point);
+  void MoveSelectionPointForward(SelectionPoint& point);
   void DeleteSelectedText();
 
   void OnSetFocus();

@@ -135,20 +135,13 @@ void EditWindow::DrawLines() {
   bool in_selection = false;
   for (auto it = document_.PieceIteratorBegin();
        it != document_.PieceIteratorEnd(); ++it) {
-    if (it->IsLineBreak()) {
-      ++line;
-      column = 0;
-      x_offset = 0.0f;
-      continue;
-    }
-
     int char_count = it->GetCharCount();
     if (line == selection_start.line && column <= selection_start.column &&
         selection_start.column < column + char_count) {
       int start_point = selection_start.column - column;
-      std::wstring_view string = document_.GetCharsInPiece(*it);
+      std::wstring_view string = document_.GetVisualCharsInPiece(*it);
       queue.push({string.substr(0, start_point), false});
-      if (column <= selection_end.column &&
+      if (line == selection_end.line && column <= selection_end.column &&
           selection_end.column < column + char_count) {
         // I“_‚ª“¯ˆêPiece‚É‚ ‚Á‚½ê‡
         int end_point = selection_end.column - column;
@@ -171,7 +164,7 @@ void EditWindow::DrawLines() {
     }
 
     if (queue.empty()) {
-      queue.push({document_.GetCharsInPiece(*it), in_selection});
+      queue.push({document_.GetVisualCharsInPiece(*it), in_selection});
     }
 
     while (!queue.empty()) {
@@ -183,7 +176,14 @@ void EditWindow::DrawLines() {
       }
       queue.pop();
     }
-    column += char_count;
+
+    if (it->IsLineBreak()) {
+      ++line;
+      column = 0;
+      x_offset = 0.0f;
+    } else {
+      column += char_count;
+    }
   }
 }
 
@@ -288,6 +288,21 @@ void EditWindow::MoveSelectionPointBack(SelectionPoint& point) {
   }
 }
 
+void EditWindow::MoveSelectionPointForward(SelectionPoint& point) {
+  auto it = document_.PieceIteratorBegin();
+  auto end = document_.PieceIteratorEnd();
+  AdvanceByLine(it, point.line, end);
+  if (point.column == GetCharCountOfLine(it, end)) {
+    AdvanceByLine(it, 1, end);
+    if (it != end) {
+      ++point.line;
+      point.column = 0;
+    }
+  } else {
+    ++point.column;
+  }
+}
+
 void EditWindow::DeleteSelectedText() {}
 
 void EditWindow::OnSetFocus() {
@@ -350,30 +365,25 @@ void EditWindow::OnKeyDown(char key) {
       return;
     }
     case VK_LEFT: {
-      if (!IsKeyPressed(VK_SHIFT)) {
+      if (IsKeyPressed(VK_SHIFT)) {
+        MoveSelectionPointBack(selection_.anchor);
+        InvalidateRect(hwnd(), nullptr, FALSE);
+      } else {
         MoveSelectionPointBack(selection_.caret_pos);
         selection_.anchor = selection_.caret_pos;
         UpdateCaretPosition();
-      } else {
-        MoveSelectionPointBack(selection_.anchor);
-        InvalidateRect(hwnd(), nullptr, FALSE);
       }
       return;
     }
     case VK_RIGHT: {
-      auto it = document_.PieceIteratorBegin();
-      auto end = document_.PieceIteratorEnd();
-      AdvanceByLine(it, selection_.caret_pos.line, end);
-      if (selection_.caret_pos.column == GetCharCountOfLine(it, end)) {
-        AdvanceByLine(it, 1, end);
-        if (it != end) {
-          selection_.SetCaretAndAnchorLine(selection_.caret_pos.line + 1);
-          selection_.SetCaretAndAnchorColumn(0);
-        }
+      if (IsKeyPressed(VK_SHIFT)) {
+        MoveSelectionPointForward(selection_.anchor);
+        InvalidateRect(hwnd(), nullptr, FALSE);
       } else {
-        selection_.SetCaretAndAnchorColumn(selection_.caret_pos.column + 1);
+        MoveSelectionPointForward(selection_.caret_pos);
+        selection_.anchor = selection_.caret_pos;
+        UpdateCaretPosition();
       }
-      UpdateCaretPosition();
       return;
     }
     case VK_DELETE: {

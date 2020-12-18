@@ -103,6 +103,21 @@ std::wstring_view Document::GetCharsInPiece(const Piece& piece) const {
   return {};
 }
 
+std::wstring_view Document::GetVisualCharsInPiece(const Piece& piece) const {
+  if (piece.IsOriginal()) {
+    return {original_.data() + piece.start(),
+            static_cast<std::size_t>(piece.GetCharCount())};
+  } else if (piece.IsPlain()) {
+    return {added_.data() + piece.start(),
+            static_cast<std::size_t>(piece.GetCharCount())};
+  } else if (piece.IsLineBreak()) {
+    static const wchar_t kSpace = L' ';
+    return {&kSpace, 1};
+  }
+  UNREACHABLE;
+  return {};
+}
+
 void Document::InsertCharsBefore(const wchar_t* chars, int count,
                                  int position) {
   assert(0 <= position);
@@ -335,6 +350,10 @@ wchar_t Document::EraseCharAt(int line, int column) {
   }
   UNREACHABLE;
   return 0;
+}
+
+void EraseCharsInRange(int line_start, int column_start, int line_end,
+                       int column_end) {
 }
 
 std::wstring Document::GetText() const {
