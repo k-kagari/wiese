@@ -1,6 +1,6 @@
 #include "edit_window.h"
 
-#include <gtest/gtest.h>
+#include "gtest/gtest.h"
 
 TEST(SelectionPoint, OperatorLessThan) {
   EXPECT_FALSE(wiese::SelectionPoint(1, 0) < wiese::SelectionPoint(1, 0));

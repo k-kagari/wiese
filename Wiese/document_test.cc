@@ -1,6 +1,6 @@
 #include "document.h"
 
-#include <gtest/gtest.h>
+#include "gtest/gtest.h"
 
 #include <cstring>
 #include <iterator>

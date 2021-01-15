@@ -55,15 +55,3 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR /*lpCmdLine*/,
   tf_thread_manager->Deactivate();
   return 0;
 }
-
-#if defined(_DEBUG) && !defined(UNITTEST)
-
-#include <gtest/gtest.h>
-
-int wmain(int argc, wchar_t** argv) {
-  testing::InitGoogleTest(&argc, argv);
-  RUN_ALL_TESTS();
-  return wWinMain(GetModuleHandle(nullptr), nullptr, nullptr, SW_SHOWNORMAL);
-}
-
-#endif

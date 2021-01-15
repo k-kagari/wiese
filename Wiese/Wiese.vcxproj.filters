@@ -7,8 +7,6 @@
     <ClCompile Include="text_store.cc" />
     <ClCompile Include="document.cc" />
     <ClCompile Include="util.cc" />
-    <ClCompile Include="document-test.cc" />
-    <ClCompile Include="edit_window_test.cc" />
     <ClCompile Include="window_base.cc" />
     <ClCompile Include="precompile.cc" />
   </ItemGroup>
