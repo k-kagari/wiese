@@ -149,8 +149,7 @@ void EditWindow::DrawLines() {
         queue.push({string.substr(end_point), false});
       } else {
         in_selection = true;
-        queue.push({
-          string.substr(start_point), true});
+        queue.push({string.substr(start_point), true});
       }
     } else if (in_selection) {
       if (line == selection_end.line && column <= selection_end.column &&
@@ -303,8 +302,7 @@ void EditWindow::MoveSelectionPointForward(SelectionPoint& point) {
   }
 }
 
-void EditWindow::DeleteSelectedText() {
-}
+void EditWindow::DeleteSelectedText() {}
 
 void EditWindow::OnSetFocus() {
   int kCaretWidth = 1;
@@ -389,6 +387,20 @@ void EditWindow::OnKeyDown(char key) {
     }
     case VK_DELETE: {
       if (selection_.HasRange()) {
+        SelectionPoint point1, point2;
+        if (selection_.caret_pos <= selection_.anchor) {
+          point1 = selection_.caret_pos;
+          point2 = selection_.anchor;
+        } else {
+          point1 = selection_.anchor;
+          point2 = selection_.caret_pos;
+        }
+        document_.EraseCharsInRange(point1.line, point1.column, point2.line,
+                                    point2.column);
+        selection_.SetCaretAndAnchorLine(point1.line);
+        selection_.SetCaretAndAnchorColumn(point1.column);
+        InvalidateRect(hwnd(), nullptr, FALSE);
+        UpdateCaretPosition();
       } else {
         if (selection_.caret_pos.line == document_.GetLineCount() - 1) {
           auto it = document_.PieceIteratorBegin();

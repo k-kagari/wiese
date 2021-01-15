@@ -33,6 +33,7 @@ struct SelectionPoint {
     if (line < rhs.line) return false;
     return line > rhs.line || column > rhs.column;
   }
+  bool operator<=(const SelectionPoint& rhs) const { return !operator>(rhs); }
 };
 
 struct Selection {
