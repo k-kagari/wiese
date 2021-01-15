@@ -87,6 +87,8 @@ class Document {
   void InsertLineBreakBefore(int line, int column);
   wchar_t EraseCharAt(int position);
   wchar_t EraseCharAt(int line, int column);
+  void EraseCharsInRange(int line_start, int column_start, int line_end,
+                         int column_end);
 
   std::wstring GetText() const;
   int GetCharCount() const;
@@ -106,6 +108,8 @@ class Document {
   void InsertCharsBefore(const wchar_t* chars, int count, int line, int column);
   wchar_t GetCharInPiece(const Piece& piece, int index) const;
   wchar_t EraseCharInFrontOf(PieceList::iterator it);
+  void EraseCharsInRangeSingleLine(int line, int start, int end);
+  void EraseCharsInRangeMultipleLines(int line_start, int column_start, int line_end, int column_end);
 
   PieceList pieces_;
   const std::vector<wchar_t> original_;
@@ -115,7 +119,7 @@ class Document {
 void AdvanceByLine(Document::PieceList::const_iterator& it, int count,
                    Document::PieceList::const_iterator end);
 int GetCharCountOfLine(Document::PieceList::const_iterator it,
-  Document::PieceList::const_iterator end);
+                       Document::PieceList::const_iterator end);
 
 }  // namespace wiese
 

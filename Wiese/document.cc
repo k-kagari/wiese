@@ -154,8 +154,8 @@ void Document::InsertCharsBefore(const wchar_t* chars, int count,
   UNREACHABLE;
 }
 
-void Document::InsertCharsBefore(const wchar_t* chars, int count,
-                                 int line, int column) {
+void Document::InsertCharsBefore(const wchar_t* chars, int count, int line,
+                                 int column) {
   assert(line >= 0);
   assert(column >= 0);
   assert(line < GetLineCount());
@@ -352,8 +352,75 @@ wchar_t Document::EraseCharAt(int line, int column) {
   return 0;
 }
 
-void EraseCharsInRange(int line_start, int column_start, int line_end,
-                       int column_end) {
+void Document::EraseCharsInRangeSingleLine(int line, int start, int end) {
+  // FIXME: O(N^2) iteration here.
+  for (int i = 0; i < end - start; ++i) {
+    EraseCharAt(line, start);
+  }
+}
+
+void Document::EraseCharsInRangeMultipleLines(int line_start, int column_start,
+                                          int line_end, int column_end) {
+  auto it = pieces_.begin();
+  AdvanceByLine(it, line_start, pieces_.end());
+
+  int line = line_start;
+  int offset = 0;
+  bool first_piece_erased = false;
+  while (it != pieces_.end()) {
+    if (!first_piece_erased) {
+      assert(line == line_start);
+      const int count = it->GetCharCount();
+      if (offset + count < column_start) {
+        offset += count;
+        ++it;
+        continue;
+      }
+      // first piece found
+      if (offset == column_start) {
+        it = pieces_.erase(it);
+      } else {
+        const int num_chars_to_erase = offset + count - column_start;
+        it->set_end(it->end() - num_chars_to_erase);
+        ++it;
+      }
+      first_piece_erased = true;
+      offset = 0;
+    } else if (line == line_end) {
+      const int count = it->GetCharCount();
+      if (offset + count < column_end) {
+        offset += count;
+        ++it;
+        continue;
+      }
+      // last piece found
+      if (offset != column_end) {
+        const int num_chars_to_erase = column_end - offset;
+        it->set_start(it->start() + num_chars_to_erase);
+      }
+      return;
+    } else {
+      if (it->IsLineBreak()) ++line;
+      it = pieces_.erase(it);
+    }
+  }
+  UNREACHABLE;
+}
+
+void Document::EraseCharsInRange(int line_start, int column_start, int line_end,
+                                 int column_end) {
+  TRACE(line, column);
+  assert(0 <= line_start);
+  assert(0 <= column_start);
+  assert(0 <= line_end);
+  assert(0 <= column_end);
+  assert(line_start <= line_end);
+
+  if (line_start == line_end) {
+    EraseCharsInRangeSingleLine(line_start, column_start, column_end);
+  } else {
+    EraseCharsInRangeMultipleLines(line_start, column_start, line_end, column_end);
+  }
 }
 
 std::wstring Document::GetText() const {
@@ -402,7 +469,7 @@ void AdvanceByLine(Document::PieceList::const_iterator& it, int count,
 }
 
 int GetCharCountOfLine(Document::PieceList::const_iterator it,
-                        Document::PieceList::const_iterator end) {
+                       Document::PieceList::const_iterator end) {
   int count = 0;
   for (; it != end && !it->IsLineBreak(); ++it) {
     count += it->GetCharCount();

@@ -303,7 +303,8 @@ void EditWindow::MoveSelectionPointForward(SelectionPoint& point) {
   }
 }
 
-void EditWindow::DeleteSelectedText() {}
+void EditWindow::DeleteSelectedText() {
+}
 
 void EditWindow::OnSetFocus() {
   int kCaretWidth = 1;

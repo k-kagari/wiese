@@ -197,6 +197,18 @@ TEST(Document, EraseCharAt_ByLineAndOffset_3) {
   EXPECT_EQ(L"01234\n789a", doc.GetText());
 }
 
+TEST(Document, EraseCharsInRange_SingleLine) {
+  wiese::Document doc(kMultiLineText);
+  doc.EraseCharsInRange(1, 1, 1, 4);
+  EXPECT_EQ(L"01234\n6a", doc.GetText());
+}
+
+TEST(Document, EraseCharsInRange_MultiLine) {
+  wiese::Document doc(kMultiLineText);
+  doc.EraseCharsInRange(0, 3, 1, 2);
+  EXPECT_EQ(L"01289a", doc.GetText());
+}
+
 TEST(Document, RegressionCase1) {
   wiese::Document doc(kText);
   doc.InsertCharBefore(L'a', 0);
