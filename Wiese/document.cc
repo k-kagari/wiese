@@ -164,12 +164,8 @@ void Document::InsertCharsBefore(const wchar_t* chars, int count, int line,
     return;
   }
 
-  auto it = pieces_.begin();
-  auto end = pieces_.end();
-  AdvanceByLine(it, line, end);
-
   int offset = 0;
-  for (; it != end; ++it) {
+  for (auto it = FindLineInternal(line); it != pieces_.end(); ++it) {
     int piece_size = it->GetCharCount();
     if (offset + piece_size == column) {
       // Specified position is in between of two pieces.
@@ -247,12 +243,8 @@ void Document::InsertLineBreakBefore(int line, int column) {
     return;
   }
 
-  auto it = pieces_.begin();
-  auto end = pieces_.end();
-  AdvanceByLine(it, line, end);
-
   int offset = 0;
-  for (; it != end; ++it) {
+  for (auto it = FindLineInternal(line); it != pieces_.end(); ++it) {
     int piece_size = it->GetCharCount();
     if (offset + piece_size == column) {
       pieces_.insert(++it, Piece::MakeLineBreak());
@@ -322,8 +314,7 @@ wchar_t Document::EraseCharAt(int line, int column) {
     return EraseCharInFrontOf(pieces_.begin());
   }
 
-  auto it = pieces_.begin();
-  AdvanceByLine(it, line, pieces_.end());
+  auto it = FindLineInternal(line);
   if (column == 0) {
     return EraseCharInFrontOf(it);
   }
@@ -361,9 +352,7 @@ void Document::EraseCharsInRangeSingleLine(int line, int start, int end) {
 
 void Document::EraseCharsInRangeMultipleLines(int line_start, int column_start,
                                           int line_end, int column_end) {
-  auto it = pieces_.begin();
-  AdvanceByLine(it, line_start, pieces_.end());
-
+  auto it = FindLineInternal(line_start);
   int line = line_start;
   int offset = 0;
   bool first_piece_erased = false;
@@ -459,6 +448,16 @@ wchar_t Document::GetCharAt(int position) const {
   }
   UNREACHABLE;
   return L'\0';
+}
+
+Document::PieceList::const_iterator Document::FindLine(int line) const {
+  return const_cast<Document&>(*this).FindLineInternal(line);
+}
+
+Document::PieceList::iterator Document::FindLineInternal(int line) {
+  auto it = pieces_.begin();
+  AdvanceByLine(it, line, pieces_.end());
+  return it;
 }
 
 void AdvanceByLine(Document::PieceList::const_iterator& it, int count,

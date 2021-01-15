@@ -239,8 +239,7 @@ void EditWindow::UpdateCaretPosition() {
     return;
   }
 
-  auto it = document_.PieceIteratorBegin();
-  AdvanceByLine(it, selection_.caret_pos.line, document_.PieceIteratorEnd());
+  auto it = document_.FindLine(selection_.caret_pos.line);
   int offset = 0;
   std::optional<Piece> piece_before_caret;
   for (; it != document_.PieceIteratorEnd(); ++it) {
@@ -274,10 +273,8 @@ void EditWindow::MoveSelectionPointBack(SelectionPoint& point) {
     if (point.line > 0) {
       --point.line;
 
-      auto it = document_.PieceIteratorBegin();
-      auto end = document_.PieceIteratorEnd();
-      AdvanceByLine(it, point.line, end);
-      point.column = GetCharCountOfLine(it, end);
+      point.column = GetCharCountOfLine(document_.FindLine(point.line),
+                                        document_.PieceIteratorEnd());
     }
   } else {
     --point.column;
@@ -285,9 +282,8 @@ void EditWindow::MoveSelectionPointBack(SelectionPoint& point) {
 }
 
 void EditWindow::MoveSelectionPointForward(SelectionPoint& point) {
-  auto it = document_.PieceIteratorBegin();
+  auto it = document_.FindLine(point.line);
   auto end = document_.PieceIteratorEnd();
-  AdvanceByLine(it, point.line, end);
   if (point.column == GetCharCountOfLine(it, end)) {
     AdvanceByLine(it, 1, end);
     if (it != end) {
@@ -400,9 +396,8 @@ void EditWindow::OnKeyDown(char key) {
         UpdateCaretPosition();
       } else {
         if (selection_.caret_pos.line == document_.GetLineCount() - 1) {
-          auto it = document_.PieceIteratorBegin();
+          auto it = document_.FindLine(selection_.caret_pos.line);
           auto end = document_.PieceIteratorEnd();
-          AdvanceByLine(it, selection_.caret_pos.line, end);
           if (selection_.caret_pos.column == GetCharCountOfLine(it, end))
             return;
         }

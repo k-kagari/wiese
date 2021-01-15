@@ -101,6 +101,8 @@ class Document {
     return pieces_.begin();
   }
   PieceList::const_iterator PieceIteratorEnd() const { return pieces_.end(); }
+  
+  PieceList::const_iterator FindLine(int line) const;
 
  private:
   Piece AddCharsToBuffer(const wchar_t* chars, int count);
@@ -110,6 +112,7 @@ class Document {
   wchar_t EraseCharInFrontOf(PieceList::iterator it);
   void EraseCharsInRangeSingleLine(int line, int start, int end);
   void EraseCharsInRangeMultipleLines(int line_start, int column_start, int line_end, int column_end);
+  PieceList::iterator FindLineInternal(int line);
 
   PieceList pieces_;
   const std::vector<wchar_t> original_;
