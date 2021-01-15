@@ -9,6 +9,7 @@
 #include <memory>
 #include <numeric>
 #include <optional>
+#include <queue>
 #include <string_view>
 #include <vector>
 
@@ -64,15 +65,21 @@ void EditWindow::CreateDeviceResources() {
   winrt::check_hresult(d2d_->CreateHwndRenderTarget(
       D2D1::RenderTargetProperties(),
       D2D1::HwndRenderTargetProperties(hwnd(), size), &render_target));
-  ID2D1SolidColorBrushPtr brush;
+  ID2D1SolidColorBrushPtr text_brush;
   winrt::check_hresult(render_target->CreateSolidColorBrush(
-      D2D1::ColorF(D2D1::ColorF::Black), &brush));
+      D2D1::ColorF(D2D1::ColorF::Black), &text_brush));
+  ID2D1SolidColorBrushPtr selection_background_brush;
+  winrt::check_hresult(render_target->CreateSolidColorBrush(
+      D2D1::ColorF(D2D1::ColorF::LightCyan), &selection_background_brush));
+
   render_target_ = std::move(render_target);
-  brush_ = std::move(brush);
+  text_brush_ = std::move(text_brush);
+  selection_background_brush_ = std::move(selection_background_brush);
 }
 
 void EditWindow::DiscardDeviceResources() {
-  brush_ = nullptr;
+  text_brush_ = nullptr;
+  selection_background_brush_ = nullptr;
   render_target_ = nullptr;
 }
 
@@ -96,27 +103,99 @@ std::unique_ptr<std::uint16_t[]> StringToGlyphIndices(
 
 bool IsKeyPressed(int key) { return GetKeyState(key) < 0; }
 
+struct DrawStringOperation {
+  std::wstring_view text;
+  bool selected;
+  DrawStringOperation(std::wstring_view text, bool selected)
+      : text(text), selected(selected) {}
+};
+
 }  // namespace
 
 void EditWindow::DrawLines() {
   const float line_height = CalculateLineHeight(font_metrics_, kFontEmSize);
+
+  SelectionPoint selection_start;
+  SelectionPoint selection_end;
+  if (selection_.caret_pos < selection_.anchor) {
+    selection_start = selection_.caret_pos;
+    selection_end = selection_.anchor;
+  } else {
+    selection_start = selection_.anchor;
+    selection_end = selection_.caret_pos;
+  }
+
+  std::queue<DrawStringOperation> queue;
+  int line = 0;
+  int column = 0;
   float x_offset = 0;
-  int line_number = 0;
+  bool in_selection = false;
   for (auto it = document_.PieceIteratorBegin();
        it != document_.PieceIteratorEnd(); ++it) {
-    if (it->IsLineBreak()) {
-      ++line_number;
-      x_offset = 0.0f;
-      continue;
+    int char_count = it->GetCharCount();
+    if (line == selection_start.line && column <= selection_start.column &&
+        selection_start.column < column + char_count) {
+      int start_point = selection_start.column - column;
+      std::wstring_view string = document_.GetVisualCharsInPiece(*it);
+      queue.push({string.substr(0, start_point), false});
+      if (line == selection_end.line && column <= selection_end.column &&
+          selection_end.column < column + char_count) {
+        // I“_‚ª“¯ˆêPiece‚É‚ ‚Á‚½ê‡
+        int end_point = selection_end.column - column;
+        queue.push({string.substr(start_point, end_point - start_point), true});
+        queue.push({string.substr(end_point), false});
+      } else {
+        in_selection = true;
+        queue.push({string.substr(start_point), true});
+      }
+    } else if (in_selection) {
+      if (line == selection_end.line && column <= selection_end.column &&
+          selection_end.column < column + char_count) {
+        int end_point = selection_end.column - column;
+        std::wstring_view string = document_.GetCharsInPiece(*it);
+        queue.push({string.substr(0, end_point), true});
+        queue.push({string.substr(end_point), false});
+        in_selection = false;
+      }
     }
-    x_offset += DrawString(document_.GetCharsInPiece(*it), x_offset,
-                           line_height * line_number);
+
+    if (queue.empty()) {
+      queue.push({document_.GetVisualCharsInPiece(*it), in_selection});
+    }
+
+    while (!queue.empty()) {
+      DrawStringOperation& op = queue.front();
+      if (!op.text.empty()) {
+        x_offset +=
+            DrawString(op.text, x_offset, line_height * line,
+                       op.selected ? selection_background_brush_ : nullptr);
+      }
+      queue.pop();
+    }
+
+    if (it->IsLineBreak()) {
+      ++line;
+      column = 0;
+      x_offset = 0.0f;
+    } else {
+      column += char_count;
+    }
   }
 }
 
-float EditWindow::DrawString(std::wstring_view text, float x, float y) {
+float EditWindow::DrawString(std::wstring_view text, float x, float y,
+                             ID2D1BrushPtr background_brush) {
   std::unique_ptr<std::uint16_t[]> glyph_indices =
       StringToGlyphIndices(text, font_face_);
+  float width = MeasureGlyphIndicesWidth(glyph_indices.get(), text.size());
+
+  if (background_brush) {
+    float height =
+        static_cast<float>(font_metrics_.ascent + font_metrics_.descent) /
+        font_metrics_.designUnitsPerEm * kFontEmSize;
+    render_target_->FillRectangle(D2D1::RectF(x, y, x + width, y + height),
+                                  background_brush);
+  }
 
   DWRITE_GLYPH_RUN glyph_run;
   glyph_run.fontFace = font_face_;
@@ -129,9 +208,9 @@ float EditWindow::DrawString(std::wstring_view text, float x, float y) {
   glyph_run.bidiLevel = 0;
   float y_offset = y + static_cast<float>(font_metrics_.ascent) /
                            font_metrics_.designUnitsPerEm * kFontEmSize;
-  render_target_->DrawGlyphRun(D2D1::Point2F(x, y_offset), &glyph_run, brush_);
-
-  return MeasureGlyphIndicesWidth(glyph_indices.get(), text.size());
+  render_target_->DrawGlyphRun(D2D1::Point2F(x, y_offset), &glyph_run,
+                               text_brush_);
+  return width;
 }
 
 float EditWindow::MeasureGlyphIndicesWidth(const std::uint16_t* indices,
@@ -154,29 +233,24 @@ float EditWindow::MeasureStringWidth(std::wstring_view string) {
 void EditWindow::UpdateCaretPosition() {
   const float line_height = DesignUnitsToWindowCoordinates(
       font_metrics_.ascent + font_metrics_.descent + font_metrics_.lineGap);
-  if (selection_.IsSinglePoint() &&
-      selection_.Point() == SelectionPoint(0, 0)) {
-    scaled_api_.SetCaretPos(0, 0);
-    return;
-  }
-  if (selection_.Point().column == 0) {
+  if (selection_.caret_pos.column == 0) {
     scaled_api_.SetCaretPos(
-        0, static_cast<int>(line_height * selection_.Point().line));
+        0, static_cast<int>(line_height * selection_.caret_pos.line));
     return;
   }
 
   auto it = document_.PieceIteratorBegin();
-  AdvanceByLine(it, selection_.Point().line, document_.PieceIteratorEnd());
+  AdvanceByLine(it, selection_.caret_pos.line, document_.PieceIteratorEnd());
   int offset = 0;
   std::optional<Piece> piece_before_caret;
   for (; it != document_.PieceIteratorEnd(); ++it) {
     int end_of_current_piece = offset + it->GetCharCount();
-    if (selection_.Point().column == end_of_current_piece) {
+    if (selection_.caret_pos.column == end_of_current_piece) {
       piece_before_caret = *it;
       break;
     }
-    if (selection_.Point().column < end_of_current_piece) {
-      piece_before_caret = it->Slice(0, selection_.Point().column - offset);
+    if (selection_.caret_pos.column < end_of_current_piece) {
+      piece_before_caret = it->Slice(0, selection_.caret_pos.column - offset);
       break;
     }
     offset = end_of_current_piece;
@@ -187,7 +261,7 @@ void EditWindow::UpdateCaretPosition() {
   }
   scaled_api_.SetCaretPos(
       static_cast<int>(x),
-      static_cast<int>(line_height * selection_.Point().line));
+      static_cast<int>(line_height * selection_.caret_pos.line));
 }
 
 float EditWindow::DesignUnitsToWindowCoordinates(UINT32 design_unit) {
@@ -195,20 +269,37 @@ float EditWindow::DesignUnitsToWindowCoordinates(UINT32 design_unit) {
          kFontEmSize;
 }
 
-void EditWindow::MoveCaretBack() {
-  if (selection_.Point().column == 0) {
-    if (selection_.Point().line > 0) {
-      selection_.SetPointLine(selection_.Point().line - 1);
+void EditWindow::MoveSelectionPointBack(SelectionPoint& point) {
+  if (point.column == 0) {
+    if (point.line > 0) {
+      --point.line;
 
       auto it = document_.PieceIteratorBegin();
       auto end = document_.PieceIteratorEnd();
-      AdvanceByLine(it, selection_.Point().line, end);
-      selection_.SetPointColumn(GetCharCountOfLine(it, end));
+      AdvanceByLine(it, point.line, end);
+      point.column = GetCharCountOfLine(it, end);
     }
   } else {
-    selection_.SetPointColumn(selection_.Point().column - 1);
+    --point.column;
   }
 }
+
+void EditWindow::MoveSelectionPointForward(SelectionPoint& point) {
+  auto it = document_.PieceIteratorBegin();
+  auto end = document_.PieceIteratorEnd();
+  AdvanceByLine(it, point.line, end);
+  if (point.column == GetCharCountOfLine(it, end)) {
+    AdvanceByLine(it, 1, end);
+    if (it != end) {
+      ++point.line;
+      point.column = 0;
+    }
+  } else {
+    ++point.column;
+  }
+}
+
+void EditWindow::DeleteSelectedText() {}
 
 void EditWindow::OnSetFocus() {
   int kCaretWidth = 1;
@@ -244,54 +335,82 @@ void EditWindow::OnPaint() {
 void EditWindow::OnKeyDown(char key) {
   switch (key) {
     case VK_BACK: {
-      if (selection_.Point() == SelectionPoint(0, 0)) return;
-      MoveCaretBack();
-      document_.EraseCharAt(selection_.Point().line, selection_.Point().column);
-      InvalidateRect(hwnd(), nullptr, FALSE);
-      UpdateCaretPosition();
+      if (selection_.HasRange()) {
+        DeleteSelectedText();
+      } else {
+        if (selection_.caret_pos == SelectionPoint(0, 0)) return;
+        MoveSelectionPointBack(selection_.caret_pos);
+        selection_.anchor = selection_.caret_pos;
+        document_.EraseCharAt(selection_.caret_pos.line,
+                              selection_.caret_pos.column);
+        InvalidateRect(hwnd(), nullptr, FALSE);
+        UpdateCaretPosition();
+      }
       return;
     }
     case VK_RETURN: {
-      document_.InsertLineBreakBefore(selection_.Point().line,
-                                      selection_.Point().column);
-      selection_.SetPoint(selection_.Point().line + 1, 0);
-      InvalidateRect(hwnd(), nullptr, FALSE);
-      UpdateCaretPosition();
+      if (selection_.HasRange()) {
+      } else {
+        document_.InsertLineBreakBefore(selection_.caret_pos.line,
+                                        selection_.caret_pos.column);
+        selection_.SetCaretAndAnchorLine(selection_.caret_pos.line + 1);
+        selection_.SetCaretAndAnchorColumn(0);
+        InvalidateRect(hwnd(), nullptr, FALSE);
+        UpdateCaretPosition();
+      }
       return;
     }
     case VK_LEFT: {
-      if (!IsKeyPressed(VK_SHIFT)) {
-        MoveCaretBack();
-        UpdateCaretPosition();
+      if (IsKeyPressed(VK_SHIFT)) {
+        MoveSelectionPointBack(selection_.anchor);
+        InvalidateRect(hwnd(), nullptr, FALSE);
       } else {
+        MoveSelectionPointBack(selection_.caret_pos);
+        selection_.anchor = selection_.caret_pos;
+        UpdateCaretPosition();
       }
       return;
     }
     case VK_RIGHT: {
-      auto it = document_.PieceIteratorBegin();
-      auto end = document_.PieceIteratorEnd();
-      AdvanceByLine(it, selection_.Point().line, end);
-      if (selection_.Point().column == GetCharCountOfLine(it, end)) {
-        AdvanceByLine(it, 1, end);
-        if (it != end) {
-          selection_.SetPoint(selection_.Point().line + 1, 0);
-        }
+      if (IsKeyPressed(VK_SHIFT)) {
+        MoveSelectionPointForward(selection_.anchor);
+        InvalidateRect(hwnd(), nullptr, FALSE);
       } else {
-        selection_.SetPointColumn(selection_.Point().column + 1);
+        MoveSelectionPointForward(selection_.caret_pos);
+        selection_.anchor = selection_.caret_pos;
+        UpdateCaretPosition();
       }
-      UpdateCaretPosition();
       return;
     }
     case VK_DELETE: {
-      if (selection_.Point().line == document_.GetLineCount() - 1) {
-        auto it = document_.PieceIteratorBegin();
-        auto end = document_.PieceIteratorEnd();
-        AdvanceByLine(it, selection_.Point().line, end);
-        if (selection_.Point().column == GetCharCountOfLine(it, end)) return;
+      if (selection_.HasRange()) {
+        SelectionPoint point1, point2;
+        if (selection_.caret_pos <= selection_.anchor) {
+          point1 = selection_.caret_pos;
+          point2 = selection_.anchor;
+        } else {
+          point1 = selection_.anchor;
+          point2 = selection_.caret_pos;
+        }
+        document_.EraseCharsInRange(point1.line, point1.column, point2.line,
+                                    point2.column);
+        selection_.SetCaretAndAnchorLine(point1.line);
+        selection_.SetCaretAndAnchorColumn(point1.column);
+        InvalidateRect(hwnd(), nullptr, FALSE);
+        UpdateCaretPosition();
+      } else {
+        if (selection_.caret_pos.line == document_.GetLineCount() - 1) {
+          auto it = document_.PieceIteratorBegin();
+          auto end = document_.PieceIteratorEnd();
+          AdvanceByLine(it, selection_.caret_pos.line, end);
+          if (selection_.caret_pos.column == GetCharCountOfLine(it, end))
+            return;
+        }
+        document_.EraseCharAt(selection_.caret_pos.line,
+                              selection_.caret_pos.column);
+        InvalidateRect(hwnd(), nullptr, FALSE);
+        UpdateCaretPosition();
       }
-      document_.EraseCharAt(selection_.Point().line, selection_.Point().column);
-      InvalidateRect(hwnd(), nullptr, FALSE);
-      UpdateCaretPosition();
       return;
     }
   }
@@ -299,8 +418,9 @@ void EditWindow::OnKeyDown(char key) {
 
 void EditWindow::OnChar(wchar_t ch) {
   if (ch == 0x08 || ch == 0x0d) return;
-  document_.InsertCharBefore(ch, selection_.Point().line, selection_.Point().column);
-  selection_.SetPointColumn(selection_.Point().column + 1);
+  document_.InsertCharBefore(ch, selection_.caret_pos.line,
+                             selection_.caret_pos.column);
+  selection_.SetCaretAndAnchorColumn(selection_.caret_pos.column + 1);
   InvalidateRect(hwnd(), nullptr, FALSE);
   UpdateCaretPosition();
 }
